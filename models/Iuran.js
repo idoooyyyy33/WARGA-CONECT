@@ -2,13 +2,13 @@ const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
 const IuranSchema = new Schema({
-    // User yang WAJIB bayar iuran ini
+    // User yang WAJIB bayar 
     warga_id: {
         type: Schema.Types.ObjectId,
         ref: 'User',
         required: true
     },
-    // Dibuat oleh siapa (Bendahara/RT/RW)
+    // Dibuat oleh siapa 
     pembuat_id: {
         type: Schema.Types.ObjectId,
         ref: 'User',
@@ -31,7 +31,7 @@ const IuranSchema = new Schema({
     },
     // Untuk periode bulan apa iuran ini
     periode_bulan: {
-        type: Number, // 1 = Jan, 2 = Feb, dst.
+        type: Number, // 1 = Jan, 2 = Feb, 
         required: true
     },
     periode_tahun: {
