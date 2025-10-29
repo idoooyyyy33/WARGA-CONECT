@@ -2,20 +2,24 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
+const cors = require('cors'); // <-- BARIS BARU 1: Impor 'cors'
 
-// --- BARIS BARU 1: Impor file route user ---
+// --- Impor file route user ---
 const userRoutes = require('./routes/user.routes'); 
 const pengumumanRoutes = require('./routes/pengumuman.routes');
-
+const laporanRoutes = require('./routes/laporan.routes.js');
+const iuranRoutes = require('./routes/iuran.routes.js');
+const kegiatanRoutes = require('./routes/kegiatan.routes.js');
+const umkmRoutes = require('./routes/umkm.routes.js');
 // 2. Load konfigurasi dari file .env
 dotenv.config();
 
 // 3. Inisialisasi aplikasi Express
 const app = express();
 
-// --- BARIS BARU 2: Agar Express bisa membaca JSON ---
-// Ini penting agar nanti bisa menerima data (spt login/registrasi) dari Flutter
-app.use(express.json()); 
+// --- Konfigurasi Middleware ---
+app.use(cors()); // <-- BARIS BARU 2: Gunakan 'cors' (WAJIB di atas routes)
+app.use(express.json()); // Agar Express bisa membaca JSON
 
 // Ambil PORT dari file .env, atau gunakan 3000 jika tidak ada
 const PORT = process.env.PORT || 3000;
@@ -26,7 +30,7 @@ const dbURI = process.env.MONGO_URI;
 // Cek jika MONGO_URI ada
 if (!dbURI) {
     console.error("Error: MONGO_URI tidak ditemukan di file .env");
-    process.exit(1); // Keluar dari aplikasi jika URI DB tidak ada
+    process.exit(1);
 }
 
 // 5. Hubungkan ke MongoDB
@@ -48,8 +52,10 @@ app.get('/', (req, res) => {
   res.send('Selamat datang di WargaConnect API!');
 });
 
-// --- BARIS BARU 3: "Pakai" file route user ---
-// Memberi tahu Express: "Setiap URL yang diawali /api/users, 
-// serahkan ke file userRoutes (user.routes.js)"
+// --- Menghubungkan Routes ---
 app.use('/api/users', userRoutes);
 app.use('/api/pengumuman', pengumumanRoutes);
+app.use('/api/laporan', laporanRoutes);
+app.use('/api/iuran', iuranRoutes);
+app.use('/api/kegiatan', kegiatanRoutes);
+app.use('/api/umkm', umkmRoutes);
