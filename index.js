@@ -3,11 +3,19 @@ const express = require('express');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 
+// --- BARIS BARU 1: Impor file route user ---
+const userRoutes = require('./routes/user.routes'); 
+const pengumumanRoutes = require('./routes/pengumuman.routes');
+
 // 2. Load konfigurasi dari file .env
 dotenv.config();
 
 // 3. Inisialisasi aplikasi Express
 const app = express();
+
+// --- BARIS BARU 2: Agar Express bisa membaca JSON ---
+// Ini penting agar nanti bisa menerima data (spt login/registrasi) dari Flutter
+app.use(express.json()); 
 
 // Ambil PORT dari file .env, atau gunakan 3000 jika tidak ada
 const PORT = process.env.PORT || 3000;
@@ -25,7 +33,7 @@ if (!dbURI) {
 mongoose.connect(dbURI)
   .then(() => {
     console.log("✅ Berhasil terhubung ke MongoDB (wargaconnect_db)");
-
+    
     // 6. Jalankan server HANYA JIKA koneksi DB berhasil
     app.listen(PORT, () => {
       console.log(`🚀 Server berjalan di http://localhost:${PORT}`);
@@ -39,3 +47,9 @@ mongoose.connect(dbURI)
 app.get('/', (req, res) => {
   res.send('Selamat datang di WargaConnect API!');
 });
+
+// --- BARIS BARU 3: "Pakai" file route user ---
+// Memberi tahu Express: "Setiap URL yang diawali /api/users, 
+// serahkan ke file userRoutes (user.routes.js)"
+app.use('/api/users', userRoutes);
+app.use('/api/pengumuman', pengumumanRoutes);
