@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import '../laporan/laporan_page.dart';
-import '../iuran/iuran_page.dart';
-import '../kegiatan/kegiatan_page.dart';
-import '../umkm/umkm_page.dart';
-import '../profil/profil_page.dart';
 
 class MainNavigation extends StatefulWidget {
   final String userName;
@@ -30,8 +25,6 @@ class _MainNavigationState extends State<MainNavigation> {
       HomePage(userName: widget.userName),
       LaporanPage(userName: widget.userName, userId: widget.userId),
       IuranPage(userName: widget.userName, userId: widget.userId),
-      KegiatanPage(userName: widget.userName, userId: widget.userId),
-      UmkmPage(userName: widget.userName, userId: widget.userId),
       ProfilPage(userName: widget.userName, userId: widget.userId),
     ];
   }
@@ -59,14 +52,6 @@ class _MainNavigationState extends State<MainNavigation> {
           BottomNavigationBarItem(
             icon: Icon(Icons.payment),
             label: 'Iuran',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.event),
-            label: 'Kegiatan',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.business),
-            label: 'UMKM',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
@@ -109,7 +94,7 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final response = await http.get(
-        Uri.parse('http://172.168.47.145:3000/api/pengumuman'),
+        Uri.parse('http://192.168.1.30:3000/api/pengumuman'),
       );
 
       if (response.statusCode == 200) {
@@ -243,6 +228,148 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
+// Halaman Laporan (Placeholder)
+class LaporanPage extends StatelessWidget {
+  final String userName;
+  final String userId;
 
+  const LaporanPage({Key? key, required this.userName, required this.userId}) : super(key: key);
 
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Laporan - $userName'),
+        backgroundColor: Colors.blueAccent,
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.report, size: 100, color: Colors.grey),
+            SizedBox(height: 20),
+            Text(
+              'Halaman Laporan',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 10),
+            Text('Fitur laporan akan diimplementasikan'),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
+// Halaman Iuran (Placeholder)
+class IuranPage extends StatelessWidget {
+  final String userName;
+  final String userId;
+
+  const IuranPage({Key? key, required this.userName, required this.userId}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Iuran - $userName'),
+        backgroundColor: Colors.blueAccent,
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.payment, size: 100, color: Colors.grey),
+            SizedBox(height: 20),
+            Text(
+              'Halaman Iuran',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 10),
+            Text('Fitur iuran akan diimplementasikan'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Halaman Profil
+class ProfilPage extends StatelessWidget {
+  final String userName;
+  final String userId;
+
+  const ProfilPage({Key? key, required this.userName, required this.userId}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Profil - $userName'),
+        backgroundColor: Colors.blueAccent,
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircleAvatar(
+              radius: 50,
+              backgroundColor: Colors.blueAccent,
+              child: Text(
+                userName[0].toUpperCase(),
+                style: TextStyle(fontSize: 40, color: Colors.white),
+              ),
+            ),
+            SizedBox(height: 20),
+            Text(
+              userName,
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 10),
+            Text('User ID: $userId'),
+            SizedBox(height: 40),
+            ElevatedButton(
+              onPressed: () {
+                // TODO: Implementasi edit profile
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Edit profile akan diimplementasikan')),
+                );
+              },
+              child: Text('Edit Profile'),
+            ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                // Logout
+                showDialog(
+                  context: context,
+                  builder: (BuildContext context) {
+                    return AlertDialog(
+                      title: Text('Logout'),
+                      content: Text('Apakah Anda yakin ingin logout?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: Text('Batal'),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            // Navigasi kembali ke login
+                            Navigator.of(context).pushNamedAndRemoveUntil('/', (Route<dynamic> route) => false);
+                          },
+                          child: Text('Logout'),
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              child: Text('Logout'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

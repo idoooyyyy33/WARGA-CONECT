@@ -13,7 +13,7 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   // GANTI INI DENGAN IP ANDA (dari ipconfig)
-  final String _apiUrl = "http://172.168.47.145:3000/api/users/login";
+  final String _apiUrl = "http://192.168.1.30:3000/api/users/login";
 
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
