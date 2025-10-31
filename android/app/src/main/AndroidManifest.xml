@@ -1,6 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
+<<<<<<< HEAD
         android:label="warga_conect_pt2"
+=======
+        android:label="wargaconnect_ui"
+>>>>>>> 74c196e45a5cdab8638cf41ea827a7b1cb319211
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

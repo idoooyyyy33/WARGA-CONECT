@@ -5,7 +5,11 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
+<<<<<<< HEAD
 	<string>Warga Conect Pt2</string>
+=======
+	<string>Wargaconnect Ui</string>
+>>>>>>> 74c196e45a5cdab8638cf41ea827a7b1cb319211
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -13,7 +17,11 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
+<<<<<<< HEAD
 	<string>warga_conect_pt2</string>
+=======
+	<string>wargaconnect_ui</string>
+>>>>>>> 74c196e45a5cdab8638cf41ea827a7b1cb319211
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

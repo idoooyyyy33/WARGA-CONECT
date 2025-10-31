@@ -15,7 +15,11 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "33CC10EC2044A3C60003C045"
+<<<<<<< HEAD
                BuildableName = "warga_conect_pt2.app"
+=======
+               BuildableName = "wargaconnect_ui.app"
+>>>>>>> 74c196e45a5cdab8638cf41ea827a7b1cb319211
                BlueprintName = "Runner"
                ReferencedContainer = "container:Runner.xcodeproj">
             </BuildableReference>
@@ -31,7 +35,11 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "33CC10EC2044A3C60003C045"
+<<<<<<< HEAD
             BuildableName = "warga_conect_pt2.app"
+=======
+            BuildableName = "wargaconnect_ui.app"
+>>>>>>> 74c196e45a5cdab8638cf41ea827a7b1cb319211
             BlueprintName = "Runner"
             ReferencedContainer = "container:Runner.xcodeproj">
          </BuildableReference>
@@ -66,7 +74,11 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "33CC10EC2044A3C60003C045"
+<<<<<<< HEAD
             BuildableName = "warga_conect_pt2.app"
+=======
+            BuildableName = "wargaconnect_ui.app"
+>>>>>>> 74c196e45a5cdab8638cf41ea827a7b1cb319211
             BlueprintName = "Runner"
             ReferencedContainer = "container:Runner.xcodeproj">
          </BuildableReference>
@@ -83,7 +95,11 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "33CC10EC2044A3C60003C045"
+<<<<<<< HEAD
             BuildableName = "warga_conect_pt2.app"
+=======
+            BuildableName = "wargaconnect_ui.app"
+>>>>>>> 74c196e45a5cdab8638cf41ea827a7b1cb319211
             BlueprintName = "Runner"
             ReferencedContainer = "container:Runner.xcodeproj">
          </BuildableReference>

@@ -5,10 +5,17 @@
 // 'flutter create' template.
 
 // The application's name. By default this is also the title of the Flutter window.
+<<<<<<< HEAD
 PRODUCT_NAME = warga_conect_pt2
 
 // The application's bundle identifier
 PRODUCT_BUNDLE_IDENTIFIER = com.example.wargaConectPt2
+=======
+PRODUCT_NAME = wargaconnect_ui
+
+// The application's bundle identifier
+PRODUCT_BUNDLE_IDENTIFIER = com.example.wargaconnectUi
+>>>>>>> 74c196e45a5cdab8638cf41ea827a7b1cb319211
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2025 com.example. All rights reserved.
