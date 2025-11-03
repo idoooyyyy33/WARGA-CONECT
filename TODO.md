@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # TODO: Implementasi Fitur Admin dengan Verifikasi Kode
 
 ## Step 1: Update AuthProvider ✅
@@ -34,3 +35,15 @@
 - [x] Test login flow admin dengan verifikasi kode
 - [ ] Implementasi fitur admin lainnya (CRUD pengumuman, dll)
 - [ ] Backend integration untuk endpoints admin
+=======
+# TODO: Fix Register Screen Errors
+
+## Tasks
+- [ ] Clean up duplicate class definitions in lib/screen/register_screen.dart
+- [ ] Ensure single valid _RegisterScreenState class with all necessary methods
+- [ ] Test registration functionality after fix
+
+## Status
+- Identified: Multiple duplicate _RegisterScreenState classes causing compilation errors
+- Plan: Remove duplicates, keep one complete class with animation, form validation, and registration logic
+>>>>>>> c69e2c959f7e5b18b7f44f1ce2e59fab823a5f5b

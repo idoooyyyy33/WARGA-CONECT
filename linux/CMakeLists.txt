@@ -4,10 +4,23 @@ project(runner LANGUAGES CXX)
 
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> c69e2c959f7e5b18b7f44f1ce2e59fab823a5f5b
 set(BINARY_NAME "warga_conect_pt2")
 # The unique GTK application identifier for this application. See:
 # https://wiki.gnome.org/HowDoI/ChooseApplicationID
 set(APPLICATION_ID "com.example.warga_conect_pt2")
+<<<<<<< HEAD
+=======
+=======
+set(BINARY_NAME "wargaconnect_ui")
+# The unique GTK application identifier for this application. See:
+# https://wiki.gnome.org/HowDoI/ChooseApplicationID
+set(APPLICATION_ID "com.example.wargaconnect_ui")
+>>>>>>> 74c196e45a5cdab8638cf41ea827a7b1cb319211
+>>>>>>> c69e2c959f7e5b18b7f44f1ce2e59fab823a5f5b
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.

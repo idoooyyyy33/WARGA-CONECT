@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+
+>>>>>>> c69e2c959f7e5b18b7f44f1ce2e59fab823a5f5b
 # warga_conect_pt2
 
 A new Flutter project.
