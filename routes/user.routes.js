@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User'); // <- Mengimpor Model
 const bcrypt = require('bcrypt');       // <- Mengimpor bcrypt
+const { authenticateUser } = require('../middleware/auth');
 
 // === 1. Route GET /api/users/ (Mengambil Semua User) ===
 router.get('/', async (req, res) => {
@@ -67,7 +68,7 @@ router.post('/login', async (req, res) => {
 
         // 3. Bandingkan password yang dikirim dengan hash di database
         const isMatch = await bcrypt.compare(password, user.password_hash);
-        
+
         if (!isMatch) {
             // Password tidak cocok
             return res.status(400).json({ message: 'Email atau password salah' });
@@ -85,6 +86,35 @@ router.post('/login', async (req, res) => {
 
     } catch (err) {
         res.status(500).json({ message: "Gagal login: " + err.message });
+    }
+});
+
+// === 4. Route GET /api/users/profile (Mendapatkan Data User yang Sedang Login) ===
+router.get('/profile', authenticateUser, async (req, res) => {
+    try {
+        // Ambil token dari Authorization header
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({ message: 'Token tidak valid' });
+        }
+
+        // Token adalah user ID (bukan JWT, tapi ID langsung)
+        const userId = authHeader.substring(7); // Ambil setelah 'Bearer '
+
+        // Cari user berdasarkan ID
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User tidak ditemukan' });
+        }
+
+        // Hapus password_hash sebelum kirim ke client
+        const userResponse = user.toObject();
+        delete userResponse.password_hash;
+
+        res.json(userResponse);
+
+    } catch (err) {
+        res.status(500).json({ message: "Gagal mendapatkan profile: " + err.message });
     }
 });
 

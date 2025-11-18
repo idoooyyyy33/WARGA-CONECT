@@ -7,6 +7,7 @@ import 'reports_screen.dart';
 import 'payments_screen.dart';
 import 'activities_screen.dart';
 import 'umkm_screen.dart';
+import 'surat_pengantar_screen.dart';
 import 'dart:math' as math;
 
 class DashboardScreen extends StatefulWidget {
@@ -672,6 +673,14 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
               subtitle: 'Produk lokal',
               color: const Color(0xFF8B5CF6),
               onTap: () => _navigateToScreen(context, const UMKMScreen()),
+            ),
+            _buildServiceCard(
+              index: 4,
+              icon: Icons.description_outlined,
+              title: 'Surat Pengantar',
+              subtitle: 'Pengajuan surat',
+              color: const Color(0xFFFB923C),
+              onTap: () => _navigateToScreen(context, const SuratPengantarScreen()),
             ),
           ],
         ),

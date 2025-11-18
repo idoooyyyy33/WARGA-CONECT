@@ -6,13 +6,15 @@ const Iuran = require('../models/Iuran');
 // POST /api/iuran
 router.post('/', async (req, res) => {
     try {
-        const { warga_id, pembuat_id, jenis_iuran, jumlah, periode_bulan, periode_tahun } = req.body;
+        const { warga_id, pembuat_id, judul, kategori, jumlah, tanggal_tenggat, periode_bulan, periode_tahun } = req.body;
 
         const iuranBaru = new Iuran({
             warga_id,
             pembuat_id,
-            jenis_iuran,
+            judul,
+            kategori,
             jumlah,
+            tanggal_tenggat,
             periode_bulan,
             periode_tahun
             // status_pembayaran otomatis 'Belum Bayar'

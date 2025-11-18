@@ -1,49 +1,18 @@
-<<<<<<< HEAD
-# TODO: Implementasi Fitur Admin dengan Verifikasi Kode
+# TODO: Implementasi Fitur Pengajuan Surat Pengantar Online
 
-## Step 1: Update AuthProvider ✅
-- [x] Tambah state untuk admin verification (isAdminVerification, verificationCode)
-- [x] Tambah method `sendAdminVerificationCode()` - kirim kode ke email admin
-- [x] Tambah method `verifyAdminCode(code)` - verifikasi kode dan redirect ke admin dashboard
-- [x] Update login method untuk detect admin role dan trigger verification
+## Backend Implementation
+- [ ] Buat model SuratPengantar.js
+- [ ] Buat routes/surat_pengantar.routes.js dengan CRUD endpoints
+- [ ] Update server.js untuk register routes baru
 
-## Step 2: Update ApiService ✅
-- [x] Tambah method `sendAdminVerificationCode(email)` - POST ke endpoint /admin/send-verification
-- [x] Tambah method `verifyAdminCode(email, code)` - POST ke endpoint /admin/verify-code
-- [x] Handle response untuk success/error messages
+## Frontend Implementation
+- [ ] Update lib/services/api_service.dart dengan methods untuk surat pengantar
+- [ ] Buat lib/screen user/surat_pengantar_screen.dart untuk user mengajukan
+- [ ] Buat lib/screen admin/surat_pengantar_admin.dart untuk admin mengelola
+- [ ] Update navigation di dashboard screens untuk akses fitur baru
 
-## Step 3: Update LoginScreen ✅
-- [x] Tambah state untuk admin verification dialog
-- [x] Tambah method `_showAdminVerificationDialog()` setelah login admin berhasil
-- [x] Dialog dengan input kode 6-digit dan resend button
-- [x] Handle verification success → navigate to admin dashboard
-
-## Step 4: Buat AdminDashboard Screen ✅
-- [x] Screen baru dengan layout admin (sidebar navigation)
-- [x] Basic dashboard dengan statistik overview
-- [x] Menu untuk: Pengumuman, Laporan, Iuran, Kegiatan, UMKM, Warga
-
-## Step 5: Update Routing di main.dart ✅
-- [x] Tambah route '/admin-dashboard'
-- [x] Tambah guard untuk admin routes (cek role admin)
-
-## Step 6: Update Navigation Logic ✅
-- [x] Di AuthProvider, setelah verify admin code → navigate to '/admin-dashboard'
-- [x] Tambah logout admin functionality
-
-## Testing & Followup
-- [x] Test login flow admin dengan verifikasi kode
-- [ ] Implementasi fitur admin lainnya (CRUD pengumuman, dll)
-- [ ] Backend integration untuk endpoints admin
-=======
-# TODO: Fix Register Screen Errors
-
-## Tasks
-- [ ] Clean up duplicate class definitions in lib/screen/register_screen.dart
-- [ ] Ensure single valid _RegisterScreenState class with all necessary methods
-- [ ] Test registration functionality after fix
-
-## Status
-- Identified: Multiple duplicate _RegisterScreenState classes causing compilation errors
-- Plan: Remove duplicates, keep one complete class with animation, form validation, and registration logic
->>>>>>> c69e2c959f7e5b18b7f44f1ce2e59fab823a5f5b
+## Testing & Integration
+- [ ] Test API endpoints
+- [ ] Test UI flow user
+- [ ] Test UI flow admin
+- [ ] Fix bugs dan integrasi

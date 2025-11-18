@@ -8,6 +8,7 @@ import 'iuran.dart';
 import 'kegiatan.dart';
 import 'umkm_admin.dart';
 import 'warga_admin.dart';
+import 'surat_pengantar_admin.dart';
 import 'dart:math' show cos, sin;
 
 class AdminDashboard extends StatefulWidget {
@@ -38,6 +39,7 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
     {'title': 'Kegiatan', 'icon': Icons.event_rounded, 'color': const Color(0xFF8B5CF6), 'desc': 'Jadwal acara RT'},
     {'title': 'UMKM', 'icon': Icons.store_rounded, 'color': const Color(0xFF06B6D4), 'desc': 'Data usaha warga'},
     {'title': 'Warga', 'icon': Icons.people_rounded, 'color': const Color(0xFFEC4899), 'desc': 'Database warga'},
+    {'title': 'Surat Pengantar', 'icon': Icons.description_rounded, 'color': const Color(0xFFFB923C), 'desc': 'Kelola surat pengantar'},
   ];
 
   @override
@@ -1093,8 +1095,8 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
 
   Widget _buildContentForIndex(int index) {
     // index - 1 karena menu items dimulai dari 0
-    final selectedMenu = _menuItems[index - 1]; 
-    
+    final selectedMenu = _menuItems[index - 1];
+
     switch (selectedMenu['title']) {
       case 'Pengumuman':
         return PengumumanPage(onBackPressed: () => setState(() => _selectedIndex = 0));
@@ -1108,6 +1110,8 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
         return UMKMAdminPage(onBackPressed: () => setState(() => _selectedIndex = 0));
       case 'Warga':
         return WargaAdminPage(onBackPressed: () => setState(() => _selectedIndex = 0));
+      case 'Surat Pengantar':
+        return SuratPengantarAdminScreen(onBackPressed: () => setState(() => _selectedIndex = 0));
       default:
         return _buildPlaceholderContent(selectedMenu['title'], selectedMenu['icon'], selectedMenu['color']);
     }

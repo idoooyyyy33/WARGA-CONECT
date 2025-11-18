@@ -7,10 +7,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-<<<<<<< HEAD
-
-=======
->>>>>>> c69e2c959f7e5b18b7f44f1ce2e59fab823a5f5b
 import 'package:warga_conect_pt2/main.dart';
 
 void main() {

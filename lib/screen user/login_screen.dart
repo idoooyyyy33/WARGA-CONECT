@@ -120,7 +120,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       letterSpacing: 2,
                     ),
                     decoration: InputDecoration(
-                      hintText: '123456',
+                      hintText: '.......',
                       counterText: '',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),

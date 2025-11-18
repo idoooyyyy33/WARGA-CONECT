@@ -2,25 +2,33 @@ const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
 const IuranSchema = new Schema({
-    // User yang WAJIB bayar 
+    // User yang WAJIB bayar
     warga_id: {
         type: Schema.Types.ObjectId,
         ref: 'User',
         required: true
     },
-    // Dibuat oleh siapa 
+    // Dibuat oleh siapa
     pembuat_id: {
         type: Schema.Types.ObjectId,
         ref: 'User',
         required: true
     },
-    jenis_iuran: {
+    judul: {
+        type: String,
+        required: true
+    },
+    kategori: {
         type: String,
         required: true,
-        // Contoh: 'Iuran Keamanan', 'Iuran Sampah', 'Dana Sosial'
+        // Contoh: 'Keamanan', 'Sampah', 'Sosial'
     },
     jumlah: {
         type: Number,
+        required: true
+    },
+    tanggal_tenggat: {
+        type: Date,
         required: true
     },
     status_pembayaran: {
@@ -31,7 +39,7 @@ const IuranSchema = new Schema({
     },
     // Untuk periode bulan apa iuran ini
     periode_bulan: {
-        type: Number, // 1 = Jan, 2 = Feb, 
+        type: Number, // 1 = Jan, 2 = Feb,
         required: true
     },
     periode_tahun: {

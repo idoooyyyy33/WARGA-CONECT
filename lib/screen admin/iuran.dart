@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/api_service.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart'; 
 
 class IuranPage extends StatefulWidget {
   final VoidCallback? onBackPressed;
@@ -22,6 +22,7 @@ class _IuranPageState extends State<IuranPage> {
   String _searchQuery = '';
   int _selectedMonth = DateTime.now().month;
   int _selectedYear = DateTime.now().year;
+  Map<String, dynamic>? _iuranInfo;
 
   // Menambah filter 'Menunggu Verifikasi'
   final List<String> _filterOptions = ['Semua', 'Menunggu Verifikasi', 'Lunas', 'Belum Lunas'];
@@ -36,37 +37,66 @@ class _IuranPageState extends State<IuranPage> {
     _loadData();
   }
 
-  Future<void> _loadData() async {
-    setState(() => _isLoading = true);
-    try {
-      final iuranResult = await _apiService.getIuran(_selectedMonth, _selectedYear);
-      // Memastikan memanggil getWargaAdmin (yang URL-nya benar)
-      final wargaResult = await _apiService.getWargaAdmin(); 
-      
-      if (mounted) {
-        if (iuranResult['success'] && wargaResult['success']) {
-          setState(() {
-            _iuranList = iuranResult['data'] ?? [];
-            _wargaList = wargaResult['data'] ?? [];
-            _isLoading = false;
-          });
-        } else {
-           _showSnackBar(
-            iuranResult['message'] ?? wargaResult['message'] ?? 'Gagal memuat data', 
-            isError: true
-          );
-           setState(() => _isLoading = false);
+Future<void> _loadData() async {
+  setState(() => _isLoading = true);
+  try {
+    // --- PERBAIKAN: Kirim bulan dan tahun ke API ---
+    final iuranResult = await _apiService.getIuran(
+      bulan: _selectedMonth,
+      tahun: _selectedYear,
+    );
+
+    // --- TAMBAHAN: Load data warga ---
+    final wargaResult = await _apiService.getWarga();
+
+    // ⭐ DEBUG: Print response untuk melihat struktur data
+    debugPrint('=== IURAN RESULT ===');
+    debugPrint('Success: ${iuranResult['success']}');
+    debugPrint('Message: ${iuranResult['message']}');
+    debugPrint('Data: ${iuranResult['data']}');
+    debugPrint('Data Length: ${(iuranResult['data'] as List?)?.length ?? 0}');
+
+    debugPrint('=== WARGA RESULT ===');
+    debugPrint('Success: ${wargaResult['success']}');
+    debugPrint('Data Length: ${(wargaResult['data'] as List?)?.length ?? 0}');
+
+    if (mounted) {
+      if (iuranResult['success'] && wargaResult['success']) {
+        final iuranData = iuranResult['data'];
+        final wargaData = wargaResult['data'];
+
+        // ⭐ Validasi apakah data adalah List
+        if (iuranData is! List) {
+          debugPrint('ERROR: iuranData bukan List, tipe: ${iuranData.runtimeType}');
         }
-      }
-    } catch (e) {
-      debugPrint('Error: $e');
-      if (mounted) {
+        if (wargaData is! List) {
+          debugPrint('ERROR: wargaData bukan List, tipe: ${wargaData.runtimeType}');
+        }
+
+        setState(() {
+          _iuranList = iuranData is List ? iuranData : [];
+          _wargaList = wargaData is List ? wargaData : [];
+          _isLoading = false;
+        });
+
+        debugPrint('Data berhasil dimuat: ${_iuranList.length} iuran, ${_wargaList.length} warga');
+      } else {
+        _showSnackBar(
+          iuranResult['message'] ?? wargaResult['message'] ?? 'Gagal memuat data',
+          isError: true
+        );
         setState(() => _isLoading = false);
-        _showSnackBar('Error: $e', isError: true);
       }
     }
+  } catch (e, stackTrace) {
+    debugPrint('Error loading data: $e');
+    debugPrint('Stack trace: $stackTrace');
+    if (mounted) {
+      setState(() => _isLoading = false);
+      _showSnackBar('Error: $e', isError: true);
+    }
   }
-
+}
   Future<void> _bayarIuran(String wargaId, int nominal, String bulan, int tahun, String metodePembayaran) async {
     try {
       final result = await _apiService.bayarIuran(wargaId, nominal, bulan, tahun, metodePembayaran);
@@ -161,29 +191,41 @@ class _IuranPageState extends State<IuranPage> {
 
   Map<String, dynamic> get _stats {
     int totalLunas = 0;
-    int totalBelumLunas = 0;
     int totalMenunggu = 0;
     int totalPendapatan = 0;
+    int totalWarga = _wargaList.length;
+
+    // ⭐ DEBUG: Log untuk tracking
+    debugPrint('=== CALCULATING STATS ===');
+    debugPrint('Total items: ${_iuranList.length}');
+    debugPrint('Total warga: $totalWarga');
 
     for (var item in _iuranList) {
       final status = item['status']?.toString() ?? 'Belum Lunas';
+      debugPrint('Item: ${item['nama_warga']} - Status: $status - Nominal: ${item['nominal']}');
+
       if (status == 'Lunas') {
         totalLunas++;
         totalPendapatan += (item['nominal'] as int?) ?? 0;
       } else if (status == 'Menunggu Verifikasi') {
         totalMenunggu++;
-      } else { // Termasuk 'Belum Lunas' atau null
-        totalBelumLunas++;
       }
     }
 
-    return {
+    // Hitung belum lunas berdasarkan total warga dikurangi yang sudah lunas dan menunggu
+    int totalBelumLunas = totalWarga - totalLunas - totalMenunggu;
+
+    final stats = {
       'lunas': totalLunas,
       'belumLunas': totalBelumLunas,
       'menunggu': totalMenunggu,
       'pendapatan': totalPendapatan,
       'total': _iuranList.length,
+      'totalWarga': totalWarga,
     };
+
+    debugPrint('Stats result: $stats');
+    return stats;
   }
 
   @override
@@ -241,64 +283,145 @@ class _IuranPageState extends State<IuranPage> {
   }
 
   Widget _buildHeader() {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFF59E0B).withOpacity(0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.payment_rounded, color: Colors.white, size: 24),
             ),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFFF59E0B).withOpacity(0.3),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
+            const SizedBox(width: 16),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Iuran RT',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF1A202C),
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Manajemen pembayaran iuran warga',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF64748B),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: const Icon(Icons.payment_rounded, color: Colors.white, size: 24),
+            ),
+          ],
         ),
-        const SizedBox(width: 16),
-        const Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Iuran RT',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF1A202C),
-                  letterSpacing: -0.5,
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: InkWell(
+                onTap: () => _showBayarDialog(),
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFF59E0B).withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.add_rounded, color: Colors.white, size: 20),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Catat Bayar',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              SizedBox(height: 4),
-              Text(
-                'Manajemen pembayaran iuran warga',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF64748B),
-                  fontWeight: FontWeight.w500,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: InkWell(
+                onTap: () => _showKelolaInformasiIuranDialog(),
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF59E0B).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.settings_rounded, color: Color(0xFFF59E0B), size: 18),
+                      ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Kelola Informasi',
+                        style: TextStyle(
+                          color: Color(0xFF1A202C),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ],
-          ),
-        ),
-        ElevatedButton.icon(
-          onPressed: () => _showBayarDialog(),
-          icon: const Icon(Icons.add_rounded, size: 20),
-          label: const Text('Catat Bayar'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFF59E0B),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            elevation: 0,
-          ),
+            ),
+          ],
         ),
       ],
     );
@@ -343,13 +466,20 @@ class _IuranPageState extends State<IuranPage> {
             const SizedBox(width: 12),
             Expanded(
               child: _buildStatCard(
-                'Total Pendapatan',
-                _formatRupiah(stats['pendapatan']),
-                Icons.payments_rounded,
-                const Color(0xFFF59E0B),
+                'Total Warga',
+                '${stats['totalWarga']}',
+                Icons.people_rounded,
+                const Color(0xFF8B5CF6),
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 12),
+        _buildStatCard(
+          'Total Pendapatan',
+          _formatRupiah(stats['pendapatan']),
+          Icons.payments_rounded,
+          const Color(0xFFF59E0B),
         ),
       ],
     );
@@ -678,11 +808,22 @@ class _IuranPageState extends State<IuranPage> {
                     ),
                   ),
                   if (isLunas && iuranId != null)
-                    IconButton(
-                      onPressed: () => _showDeleteDialog(iuranId),
-                      icon: const Icon(Icons.delete_rounded),
-                      color: const Color(0xFFDC2626),
-                      iconSize: 20,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          onPressed: () => _showEditDialog(item),
+                          icon: const Icon(Icons.edit_rounded),
+                          color: const Color(0xFFF59E0B),
+                          iconSize: 20,
+                        ),
+                        IconButton(
+                          onPressed: () => _showDeleteDialog(iuranId),
+                          icon: const Icon(Icons.delete_rounded),
+                          color: const Color(0xFFDC2626),
+                          iconSize: 20,
+                        ),
+                      ],
                     ),
                 ],
               ),
@@ -828,26 +969,6 @@ class _IuranPageState extends State<IuranPage> {
                     ],
                   ),
                   const SizedBox(height: 24),
-                  DropdownButtonFormField<String>(
-                    value: selectedWargaId,
-                    decoration: InputDecoration(
-                      labelText: 'Pilih Warga',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                    ),
-                    items: _wargaList.map((warga) {
-                      return DropdownMenuItem<String>(
-                        value: warga['_id'].toString(), 
-                        child: Text(warga['nama_lengkap'] ?? warga['nama'] ?? 'N/A'),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setDialogState(() => selectedWargaId = value);
-                    },
-                    validator: (value) => value == null ? 'Warga harus dipilih' : null,
-                  ),
-                  const SizedBox(height: 16),
                   TextField(
                     controller: nominalController,
                     keyboardType: TextInputType.number,
@@ -860,6 +981,26 @@ class _IuranPageState extends State<IuranPage> {
                       fillColor: const Color(0xFFF8FAFC),
                       prefixText: 'Rp ',
                     ),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: selectedWargaId,
+                    decoration: InputDecoration(
+                      labelText: 'Pilih Warga',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                    ),
+                    items: _wargaList.map((warga) {
+                      return DropdownMenuItem<String>(
+                        value: warga['_id'].toString(),
+                        child: Text(warga['nama_lengkap'] ?? warga['nama'] ?? 'N/A'),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setDialogState(() => selectedWargaId = value);
+                    },
+                    validator: (value) => value == null ? 'Warga harus dipilih' : null,
                   ),
                   const SizedBox(height: 16),
                   const Text(
@@ -912,8 +1053,8 @@ class _IuranPageState extends State<IuranPage> {
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () {
-                            if (selectedWargaId == null || nominalController.text.isEmpty) {
-                              _showSnackBar('Semua field harus diisi', isError: true);
+                            if (nominalController.text.isEmpty || selectedWargaId == null) {
+                              _showSnackBar('Nominal dan warga harus diisi', isError: true);
                               return;
                             }
 
@@ -939,23 +1080,31 @@ class _IuranPageState extends State<IuranPage> {
                   ),
                 ],
               ),
-            ), 
+            ),
           ),
         ),
       ),
     );
   }
   
-  // --- TAMBAHAN: Dialog Verifikasi ---
+ // --- TAMBAHAN: Dialog Verifikasi ---
   void _showVerificationDialog(Map<String, dynamic> item) {
-    final String iuranId = item['id'].toString();
+    final String iuranId = item['id']?.toString() ?? '';
     final String? buktiBayarPath = item['bukti_pembayaran']?.toString();
     
+    // Debug
+    debugPrint('=== VERIFICATION DIALOG ===');
+    debugPrint('Iuran ID: $iuranId');
+    debugPrint('Bukti Path: $buktiBayarPath');
+    debugPrint('Full item: $item');
+    
     // Membangun URL gambar dari backend
-    // Ganti 'localhost' atau '127.0.0.1' dengan IP server jika perlu
-    // Pastikan baseUrl tidak memiliki '/api' di akhir saat membangun URL gambar
-    final String imageUrl = ApiService.baseUrl.replaceAll('/api', '') + 
-                            '/$buktiBayarPath'.replaceAll('\\', '/');
+    String? imageUrl;
+    if (buktiBayarPath != null && buktiBayarPath.isNotEmpty) {
+      final cleanBaseUrl = ApiService.baseUrl.replaceAll('/api', '');
+      imageUrl = '$cleanBaseUrl/${buktiBayarPath.replaceAll('\\', '/')}';
+      debugPrint('Image URL: $imageUrl');
+    }
 
     showDialog(
       context: context,
@@ -980,7 +1129,7 @@ class _IuranPageState extends State<IuranPage> {
               ),
               const SizedBox(height: 8),
               
-              (buktiBayarPath == null || buktiBayarPath.isEmpty) 
+              (imageUrl == null || imageUrl.isEmpty) 
               ? Container(
                   height: 200,
                   alignment: Alignment.center,
@@ -1000,11 +1149,9 @@ class _IuranPageState extends State<IuranPage> {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  // Menampilkan gambar dari URL server
                   child: Image.network(
                     imageUrl,
                     fit: BoxFit.cover,
-                    // Menampilkan loading spinner saat gambar dimuat
                     loadingBuilder: (context, child, loadingProgress) {
                       if (loadingProgress == null) return child;
                       return Container(
@@ -1018,7 +1165,6 @@ class _IuranPageState extends State<IuranPage> {
                         ),
                       );
                     },
-                    // Menampilkan error jika gambar gagal dimuat
                     errorBuilder: (context, error, stackTrace) {
                       debugPrint('Error loading image: $error');
                       debugPrint('Image URL: $imageUrl');
@@ -1047,7 +1193,6 @@ class _IuranPageState extends State<IuranPage> {
           ),
         ),
         actions: [
-          // Tombol Tolak
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
@@ -1056,7 +1201,6 @@ class _IuranPageState extends State<IuranPage> {
             style: TextButton.styleFrom(foregroundColor: const Color(0xFFDC2626)),
             child: const Text('Tolak'),
           ),
-          // Tombol Setujui
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
@@ -1101,6 +1245,204 @@ class _IuranPageState extends State<IuranPage> {
     );
   }
 
+  void _showEditDialog(Map<String, dynamic> item) {
+    final iuranId = item['id']?.toString() ?? '';
+    final jenisController = TextEditingController(text: item['jenis_iuran'] ?? 'Iuran RT');
+    final nominalController = TextEditingController(text: (item['nominal'] as int?)?.toString() ?? '0');
+    final bulanController = TextEditingController(text: item['periode_bulan'] ?? '');
+    final tahunController = TextEditingController(text: (item['periode_tahun'] as int?)?.toString() ?? '');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 500),
+          padding: const EdgeInsets.all(24),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.edit_rounded, color: Color(0xFFF59E0B), size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Edit Data Iuran',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1A202C),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                TextField(
+                  controller: jenisController,
+                  decoration: InputDecoration(
+                    labelText: 'Jenis Iuran',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: nominalController,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: InputDecoration(
+                    labelText: 'Nominal (Rp)',
+                    hintText: 'Masukkan nominal',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                    prefixText: 'Rp ',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: bulanController,
+                        decoration: InputDecoration(
+                          labelText: 'Bulan',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: tahunController,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        decoration: InputDecoration(
+                          labelText: 'Tahun',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          side: const BorderSide(color: Color(0xFFE2E8F0)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Batal'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          if (jenisController.text.isEmpty ||
+                              nominalController.text.isEmpty ||
+                              bulanController.text.isEmpty ||
+                              tahunController.text.isEmpty) {
+                            _showSnackBar('Semua field harus diisi', isError: true);
+                            return;
+                          }
+
+                          final updateData = {
+                            'jenis_iuran': jenisController.text,
+                            'jumlah': int.parse(nominalController.text),
+                            'periode_bulan': bulanController.text,
+                            'periode_tahun': int.parse(tahunController.text),
+                          };
+
+                          final result = await _apiService.updateIuranInfo(iuranId, updateData);
+                          Navigator.pop(ctx);
+
+                          if (result['success']) {
+                            _showSnackBar('Data iuran berhasil diperbarui', isError: false);
+                            _loadData();
+                          } else {
+                            _showSnackBar(result['message'] ?? 'Gagal memperbarui data', isError: true);
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFF59E0B),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Simpan'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoItem(String title, String value, IconData icon, {Color? color}) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: (color ?? const Color(0xFF64748B)).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: color ?? const Color(0xFF64748B), size: 20),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF64748B),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: color ?? const Color(0xFF1A202C),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   String _formatRupiah(int nominal) {
     final formatter = NumberFormat.currency(
       locale: 'id_ID',
@@ -1120,17 +1462,935 @@ class _IuranPageState extends State<IuranPage> {
     }
   }
 
-  // Helper baru untuk warna status
+  void _showKelolaInformasiIuranDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 500),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header dengan ikon dan judul
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFF59E0B).withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.settings_rounded, color: Colors.white, size: 24),
+                    ),
+                    const SizedBox(width: 16),
+                    const Expanded(
+                      child: Text(
+                        'Kelola Informasi Iuran',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1A202C),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Pilihan menu
+                const Text(
+                  'Pilih tindakan yang ingin dilakukan:',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF64748B),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Tombol Informasi
+                InkWell(
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _showInformasiIuranDialog();
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF3B82F6).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.info_rounded, color: Color(0xFF3B82F6), size: 24),
+                        ),
+                        const SizedBox(width: 16),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Informasi',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF1A202C),
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Lihat informasi iuran yang sudah dibuat',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF64748B),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF64748B), size: 16),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // Tombol Kelola Informasi
+                InkWell(
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _showKelolaIuranDialog();
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF59E0B).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.edit_rounded, color: Color(0xFFF59E0B), size: 24),
+                        ),
+                        const SizedBox(width: 16),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Kelola Informasi',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF1A202C),
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Edit atau hapus informasi iuran',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF64748B),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF64748B), size: 16),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // Tombol Buat Mass Iuran
+                InkWell(
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _showBuatMassIuranDialog();
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.add_circle_rounded, color: Color(0xFF10B981), size: 24),
+                        ),
+                        const SizedBox(width: 16),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Buat Mass Iuran',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF1A202C),
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Buat iuran untuk semua warga sekaligus',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF64748B),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF64748B), size: 16),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Tombol Batal
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Batal', style: TextStyle(color: Color(0xFF64748B))),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Dialog untuk melihat informasi iuran
+  void _showInformasiIuranDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 600, maxHeight: 500),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF3B82F6).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.info_rounded, color: Color(0xFF3B82F6), size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Informasi Iuran',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1A202C),
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close_rounded),
+                      color: Color(0xFF64748B),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Konten informasi
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Ringkasan Periode
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Ringkasan Periode',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF1A202C),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildInfoItem(
+                                      'Periode',
+                                      '${_bulanList[_selectedMonth - 1]} $_selectedYear',
+                                      Icons.calendar_month_rounded,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: _buildInfoItem(
+                                      'Total Iuran',
+                                      '${_filteredIuran.length}',
+                                      Icons.payment_rounded,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildInfoItem(
+                                      'Lunas',
+                                      '${_stats['lunas']}',
+                                      Icons.check_circle_rounded,
+                                      color: const Color(0xFF10B981),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: _buildInfoItem(
+                                      'Belum Lunas',
+                                      '${_stats['belumLunas']}',
+                                      Icons.schedule_rounded,
+                                      color: const Color(0xFFDC2626),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // Daftar Iuran
+                        const Text(
+                          'Daftar Iuran',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1A202C),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        if (_filteredIuran.isEmpty)
+                          Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(32),
+                              child: Column(
+                                children: [
+                                  Icon(
+                                    Icons.payment_rounded,
+                                    size: 48,
+                                    color: Colors.grey[300],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'Belum ada data iuran untuk periode ini',
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else
+                          ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _filteredIuran.length,
+                            itemBuilder: (context, index) {
+                              final item = _filteredIuran[index];
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            item['nama_warga']?.toString() ?? 'N/A',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFF1A202C),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            _formatRupiah(item['nominal'] ?? 0),
+                                            style: const TextStyle(
+                                              color: Color(0xFFF59E0B),
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: _getStatusColor(item['status']?.toString()).withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        item['status']?.toString() ?? 'Belum Lunas',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: _getStatusColor(item['status']?.toString()),
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Dialog untuk mengelola (edit/hapus) iuran
+  void _showKelolaIuranDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 600, maxHeight: 600),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Color.fromRGBO(245, 158, 11, 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.edit_rounded, color: Color(0xFFF59E0B), size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Kelola Iuran',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1A202C),
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close_rounded),
+                      color: Color(0xFF64748B),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Konten
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Daftar Iuran',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1A202C),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        if (_filteredIuran.isEmpty)
+                          Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(32),
+                              child: Column(
+                                children: [
+                                  Icon(
+                                    Icons.payment_rounded,
+                                    size: 48,
+                                    color: Colors.grey[300],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'Belum ada data iuran untuk periode ini',
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else
+                          ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _filteredIuran.length,
+                            itemBuilder: (context, index) {
+                              final item = _filteredIuran[index];
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Color.fromRGBO(0, 0, 0, 0.04),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            item['nama_warga']?.toString() ?? 'N/A',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFF1A202C),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            '${item['jenis_iuran'] ?? 'Iuran RT'} - ${_formatRupiah(item['nominal'] ?? 0)}',
+                                            style: const TextStyle(
+                                              color: Color(0xFFF59E0B),
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            '${item['periode_bulan'] ?? ''} ${item['periode_tahun'] ?? ''}',
+                                            style: const TextStyle(
+                                              color: Color(0xFF64748B),
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          onPressed: () {
+                                            Navigator.of(context).pop();
+                                            _showEditDialog(item);
+                                          },
+                                          icon: const Icon(Icons.edit_rounded),
+                                          color: const Color(0xFFF59E0B),
+                                          iconSize: 20,
+                                          tooltip: 'Edit',
+                                        ),
+                                        IconButton(
+                                          onPressed: () {
+                                            Navigator.of(context).pop();
+                                            _showDeleteDialog(item['id']?.toString() ?? '');
+                                          },
+                                          icon: const Icon(Icons.delete_rounded),
+                                          color: const Color(0xFFDC2626),
+                                          iconSize: 20,
+                                          tooltip: 'Hapus',
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Color _getStatusColor(String? status) {
-    switch (status) {
-      case 'Lunas':
-        return const Color(0xFF10B981); // Hijau
-      case 'Menunggu Verifikasi':
-        return const Color(0xFF3B82F6); // Biru
-      case 'Belum Lunas':
-        return const Color(0xFFDC2626); // Merah
+    switch (status?.toLowerCase()) {
+      case 'lunas':
+        return const Color(0xFF10B981);
+      case 'menunggu verifikasi':
+        return const Color(0xFF3B82F6);
       default:
-        return const Color(0xFF64748B); // Abu-abu
+        return const Color(0xFFDC2626);
     }
+  }
+
+  // Dialog untuk membuat mass iuran
+  void _showBuatMassIuranDialog() {
+    final judulController = TextEditingController(text: 'Iuran RT Bulan Ini');
+    final jenisController = TextEditingController(text: 'Iuran RT');
+    final jumlahController = TextEditingController(text: '50000');
+    int selectedBulan = _selectedMonth;
+    int selectedTahun = _selectedYear;
+    DateTime selectedJatuhTempo = DateTime.now().add(const Duration(days: 30));
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 500),
+          padding: const EdgeInsets.all(24),
+          child: StatefulBuilder(
+            builder: (context, setDialogState) => SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.add_circle_rounded, color: Color(0xFF10B981), size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Buat Mass Iuran',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1A202C),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  TextField(
+                    controller: judulController,
+                    decoration: InputDecoration(
+                      labelText: 'Judul Iuran',
+                      hintText: 'Masukkan judul iuran',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: jenisController,
+                    decoration: InputDecoration(
+                      labelText: 'Jenis Iuran',
+                      hintText: 'Masukkan jenis iuran',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: jumlahController,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: InputDecoration(
+                      labelText: 'Jumlah (Rp)',
+                      hintText: 'Masukkan jumlah iuran',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      prefixText: 'Rp ',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<int>(
+                          value: selectedBulan,
+                          decoration: InputDecoration(
+                            labelText: 'Bulan',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                          ),
+                          items: List.generate(12, (index) {
+                            return DropdownMenuItem(
+                              value: index + 1,
+                              child: Text(_bulanList[index]),
+                            );
+                          }),
+                          onChanged: (value) {
+                            if (value != null) setDialogState(() => selectedBulan = value);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: DropdownButtonFormField<int>(
+                          value: selectedTahun,
+                          decoration: InputDecoration(
+                            labelText: 'Tahun',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                          ),
+                          items: List.generate(5, (index) {
+                            final year = DateTime.now().year - 2 + index;
+                            return DropdownMenuItem(
+                              value: year,
+                              child: Text(year.toString()),
+                            );
+                          }),
+                          onChanged: (value) {
+                            if (value != null) setDialogState(() => selectedTahun = value);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: selectedJatuhTempo,
+                        firstDate: DateTime.now(),
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                      );
+                      if (picked != null) {
+                        setDialogState(() => selectedJatuhTempo = picked);
+                      }
+                    },
+                    child: InputDecorator(
+                      decoration: InputDecoration(
+                        labelText: 'Jatuh Tempo',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        suffixIcon: const Icon(Icons.calendar_today_rounded, color: Color(0xFF64748B)),
+                      ),
+                      child: Text(
+                        DateFormat('dd MMMM yyyy', 'id_ID').format(selectedJatuhTempo),
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            side: const BorderSide(color: Color(0xFFE2E8F0)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: const Text('Batal'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            if (judulController.text.isEmpty ||
+                                jenisController.text.isEmpty ||
+                                jumlahController.text.isEmpty) {
+                              _showSnackBar('Semua field harus diisi', isError: true);
+                              return;
+                            }
+
+                            final userData = await _apiService.getUserData();
+                            if (userData == null) {
+                              _showSnackBar('Gagal mendapatkan data user', isError: true);
+                              return;
+                            }
+
+                            final iuranData = {
+                              'judul_iuran': judulController.text,
+                              'jenis_iuran': jenisController.text,
+                              'jumlah': int.parse(jumlahController.text),
+                              'periode_bulan': selectedBulan,
+                              'periode_tahun': selectedTahun,
+                              'jatuh_tempo': selectedJatuhTempo.toIso8601String(),
+                            };
+
+                            final requestBody = {
+                              'pembuat_id': userData['_id'],
+                              'judul_iuran': iuranData['judul_iuran'],
+                              'jenis_iuran': iuranData['jenis_iuran'],
+                              'jumlah': iuranData['jumlah'],
+                              'periode': {
+                                'bulan': iuranData['periode_bulan'],
+                                'tahun': iuranData['periode_tahun'],
+                              },
+                              'jatuh_tempo': iuranData['jatuh_tempo'],
+                            };
+
+                            try {
+                              final result = await _apiService.createMassIuran(requestBody);
+                              Navigator.pop(ctx);
+
+                              if (result['success']) {
+                                _showSnackBar('Mass iuran berhasil dibuat untuk semua warga', isError: false);
+                                _loadData();
+                              } else {
+                                _showSnackBar(result['message'] ?? 'Gagal membuat mass iuran', isError: true);
+                              }
+                            } catch (e) {
+                              Navigator.pop(ctx);
+                              _showSnackBar('Error: $e', isError: true);
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF10B981),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: const Text('Buat Mass Iuran'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -78,10 +78,22 @@ class AuthProvider with ChangeNotifier {
     try {
       final token = await _getToken();
       if (token != null) {
-        print('✅ TOKEN FOUND'); // DEBUG
-        _isAuthenticated = true;
-        _userData = await _loadUserData();
-        print('👤 USER DATA IN PROVIDER: $_userData'); // DEBUG
+        print('✅ TOKEN FOUND, VERIFYING WITH SERVER...'); // DEBUG
+        // Verify token with server by calling getUserProfile
+        final apiService = ApiService();
+        final result = await apiService.getUserProfile();
+        if (result['success'] == true) {
+          print('✅ TOKEN VALID'); // DEBUG
+          _isAuthenticated = true;
+          _userData = await _loadUserData();
+          print('👤 USER DATA IN PROVIDER: $_userData'); // DEBUG
+        } else {
+          print('❌ TOKEN INVALID, CLEARING...'); // DEBUG
+          await _clearToken();
+          await _clearUserData();
+          _isAuthenticated = false;
+          _userData = null;
+        }
       } else {
         print('❌ NO TOKEN FOUND'); // DEBUG
         _isAuthenticated = false;
@@ -89,6 +101,9 @@ class AuthProvider with ChangeNotifier {
       }
     } catch (e) {
       print('❌ ERROR IN checkAuthStatus: $e'); // DEBUG
+      // On error (e.g., network issues), treat as not authenticated
+      await _clearToken();
+      await _clearUserData();
       _isAuthenticated = false;
       _userData = null;
       _errorMessage = 'Error checking auth status: $e';

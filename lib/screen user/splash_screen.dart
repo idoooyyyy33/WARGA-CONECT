@@ -92,13 +92,19 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   Future<void> _checkAuth() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     await authProvider.checkAuthStatus();
-    
+
     await Future.delayed(const Duration(milliseconds: 3000));
-    
+
     if (!mounted) return;
-    
+
     if (authProvider.isAuthenticated) {
-      Navigator.of(context).pushReplacementNamed('/dashboard');
+      // Check user role to navigate to appropriate dashboard
+      final userData = authProvider.userData;
+      if (userData != null && userData['role'] == 'ketua_rt') {
+        Navigator.of(context).pushReplacementNamed('/admin-dashboard');
+      } else {
+        Navigator.of(context).pushReplacementNamed('/dashboard');
+      }
     } else {
       Navigator.of(context).pushReplacementNamed('/login');
     }

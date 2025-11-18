@@ -2,10 +2,11 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
 
 class ApiService {
-  // --- PERHATIAN: Pastikan IP ini benar dan HP/Emulator Anda terhubung ke WiFi yang sama ---
-  static const String baseUrl = 'http://172.168.47.153:3000/api';
+  // --- PERHATIAN: Menggunakan ngrok untuk akses otomatis ---
+  static const String baseUrl = 'https://bereft-tammie-inaudibly.ngrok-free.dev/api';
 
   // Helper untuk handle response
   Map<String, dynamic> _handleResponse(http.Response response) {
@@ -15,7 +16,6 @@ class ApiService {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return {'success': true, 'data': data};
       } else {
-        // --- PERBAIKAN: Memberi pesan error yang lebih jelas dari server ---
         String errorMessage = 'Terjadi kesalahan';
         if (data is Map && data.containsKey('message')) {
           errorMessage = data['message'];
@@ -27,11 +27,10 @@ class ApiService {
         return {
           'success': false,
           'message': errorMessage,
-          'statusCode': response.statusCode // Tambahkan status code untuk debug
+          'statusCode': response.statusCode
         };
       }
     } catch (e) {
-      // Ini terjadi jika server mengirim HTML (seperti error 404 atau 500)
       if (e is FormatException && response.body.contains('<!DOCTYPE')) {
          return {'success': false, 'message': 'Error: Server mengirimkan HTML, bukan JSON. Cek URL API atau log server. (Status: ${response.statusCode})'};
       }
@@ -55,7 +54,6 @@ class ApiService {
   Future<void> _clearToken() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('token');
-    // --- TAMBAHAN: Hapus juga user_data saat logout ---
     await prefs.remove('user_data'); 
   }
 
@@ -83,15 +81,17 @@ class ApiService {
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        // --- PERBAIKAN: Simpan token dan user_data ---
-        if (data['token'] != null) {
-          await _saveToken(data['token']);
-        }
+        // Simpan user data ke SharedPreferences
         if (data['user'] != null) {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('user_data', jsonEncode(data['user']));
         }
-        
+
+        // Simpan token sebagai user ID (karena backend tidak menggunakan JWT)
+        if (data['user'] != null && data['user']['_id'] != null) {
+          await _saveToken(data['user']['_id']);
+        }
+
         return {'success': true, 'data': data};
       } else {
         return {'success': false, 'message': data['message'] ?? 'Login gagal'};
@@ -109,7 +109,6 @@ class ApiService {
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(userData),
       );
-      // Gunakan _handleResponse
       return _handleResponse(response);
     } catch (e) {
       return {'success': false, 'message': 'Terjadi kesalahan: $e'};
@@ -119,6 +118,33 @@ class ApiService {
   // Logout
   Future<void> logout() async {
     await _clearToken();
+  }
+
+  // Get User Profile
+  Future<Map<String, dynamic>> getUserProfile() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/users/profile'),
+        headers: await _getHeaders(),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Terjadi kesalahan: $e'};
+    }
+  }
+
+  // Get User Data from storage
+  Future<Map<String, dynamic>?> getUserData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userDataString = prefs.getString('user_data');
+      if (userDataString != null) {
+        return jsonDecode(userDataString);
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
   }
 
   // Get Announcements
@@ -159,7 +185,7 @@ class ApiService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final transformedData = data.map((item) => {
-          'id': item['_id'], // --- TAMBAHAN ID (jika perlu) ---
+          'id': item['_id'],
           'title': item['judul_laporan'] ?? 'Laporan',
           'description': item['isi_laporan'] ?? '',
           'category': item['kategori_laporan'] ?? 'Lainnya',
@@ -181,21 +207,18 @@ class ApiService {
   // Create Report
   Future<Map<String, dynamic>> createReport(Map<String, dynamic> reportData) async {
     try {
-      // PERBAIKAN: Dapatkan ID pelapor dari SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       final userDataString = prefs.getString('user_data');
       if (userDataString == null) {
         return {'success': false, 'message': 'User tidak terautentikasi. Silakan login ulang.'};
       }
       final userData = jsonDecode(userDataString);
-      final pelaporId = userData['_id']; // Asumsi ID user adalah _id
+      final pelaporId = userData['_id'];
 
-      // Tambahkan pelapor_id ke data laporan
       reportData['pelapor_id'] = pelaporId;
-      // BATAS PERBAIKAN
 
       final response = await http.post(
-        Uri.parse('$baseUrl/laporan'), // Endpoint sudah benar
+        Uri.parse('$baseUrl/laporan'),
         headers: await _getHeaders(),
         body: jsonEncode(reportData),
       );
@@ -209,21 +232,21 @@ class ApiService {
   Future<Map<String, dynamic>> getPayments() async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/iuran'), // Ini akan mengambil semua iuran untuk user yg login (jika backend disetup)
+        Uri.parse('$baseUrl/iuran'),
         headers: await _getHeaders(),
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final transformedData = data.map((item) => {
-          'id': item['_id'], // --- TAMBAHAN: Kita butuh ID untuk bayar ---
-          'title': item['judul_iuran'] ?? 'Iuran',
-          'description': item['judul_iuran'] ?? 'Pembayaran iuran',
+          'id': item['_id'],
+          'title': item['judul'] ?? 'Iuran',
+          'description': item['judul'] ?? 'Pembayaran iuran',
           'amount': item['jumlah'] ?? 0,
           'status': item['status_pembayaran'] ?? 'Menunggu',
-          'type': item['jenis_iuran'] ?? 'Iuran', // --- PERBAIKAN ---
-          'date': item['jatuh_tempo'] != null
-              ? DateTime.parse(item['jatuh_tempo']).toString().split(' ')[0]
+          'type': item['kategori'] ?? 'Iuran',
+          'date': item['tanggal_tenggat'] != null
+              ? DateTime.parse(item['tanggal_tenggat']).toString().split(' ')[0]
               : '',
           'periode': item['periode'] != null
               ? '${item['periode']['bulan']}/${item['periode']['tahun']}'
@@ -409,141 +432,321 @@ class ApiService {
     }
   }
 
-  // Get Iuran (Admin)
-  Future<Map<String, dynamic>> getIuran(int bulan, int tahun) async {
+  // ==================== IURAN METHODS (FIXED) ====================
+  
+  // Get Iuran (Admin) - FIXED
+  Future<Map<String, dynamic>> getIuran({int? bulan, int? tahun}) async {
     try {
+      final Map<String, String> queryParams = {};
+      if (bulan != null) {
+        queryParams['bulan'] = bulan.toString();
+      }
+      if (tahun != null) {
+        queryParams['tahun'] = tahun.toString();
+      }
+
+      final uri = Uri.parse('$baseUrl/admin/iuran').replace(
+        queryParameters: queryParams.isNotEmpty ? queryParams : null
+      );
+
+      debugPrint('🔍 Fetching iuran from: $uri');
+
       final response = await http.get(
-        Uri.parse('$baseUrl/iuran?bulan=$bulan&tahun=$tahun'), // Ini endpoint admin
+        uri,
         headers: await _getHeaders(),
       );
+
+      debugPrint('📡 Response Status: ${response.statusCode}');
+      debugPrint('📦 Response Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final rawData = jsonDecode(response.body);
+        
+        if (rawData is! List) {
+          debugPrint('❌ ERROR: Response bukan List');
+          return {
+            'success': false, 
+            'message': 'Format data tidak valid dari server',
+            'data': []
+          };
+        }
+
+        final List<Map<String, dynamic>> transformedData = [];
+        
+        for (var item in rawData) {
+          try {
+            debugPrint('📄 Processing: ${item['_id']}');
+            debugPrint('   Warga: ${item['warga_id']?['nama_lengkap']}');
+            debugPrint('   Status: ${item['status_pembayaran']}');
+            debugPrint('   Jumlah: ${item['jumlah']}');
+            debugPrint('   Bukti: ${item['bukti_pembayaran']}');
+            
+            transformedData.add({
+              'id': item['_id']?.toString() ?? '',
+              'warga_id': item['warga_id']?['_id']?.toString() ?? '',
+              'nama_warga': item['warga_id']?['nama_lengkap']?.toString() ?? 'Tidak Diketahui',
+              'jenis_iuran': item['jenis_iuran']?.toString() ?? 'Iuran RT',
+              'nominal': (item['jumlah'] is int) ? item['jumlah'] : int.tryParse(item['jumlah']?.toString() ?? '0') ?? 0,
+              'status': item['status_pembayaran']?.toString() ?? 'Belum Lunas',
+              'tanggal_bayar': item['tanggal_bayar']?.toString(),
+              'metode_pembayaran': item['metode_pembayaran']?.toString() ?? '-',
+              'bukti_pembayaran': item['bukti_pembayaran']?.toString(),
+              'periode_bulan': item['periode']?['bulan']?.toString() ?? item['periode_bulan']?.toString() ?? '',
+              'periode_tahun': item['periode']?['tahun'] ?? item['periode_tahun'] ?? 0,
+            });
+          } catch (e) {
+            debugPrint('⚠️ Error processing item: $e');
+            continue;
+          }
+        }
+
+        debugPrint('✅ Transformed ${transformedData.length} items');
+        return {'success': true, 'data': transformedData};
+      } else {
+        debugPrint('❌ Error Response: ${response.body}');
+        return _handleResponse(response);
+      }
+    } catch (e, stackTrace) {
+      debugPrint('❌ Exception in getIuran: $e');
+      debugPrint('Stack: $stackTrace');
+      return {'success': false, 'message': 'Terjadi kesalahan: $e', 'data': []};
+    }
+  }
+
+  // Get Warga - FIXED
+  Future<Map<String, dynamic>> getWarga() async {
+    try {
+      debugPrint('🔍 Fetching warga list...');
+      
+      final response = await http.get(
+        Uri.parse('$baseUrl/admin/warga'),
+        headers: await _getHeaders(),
+      );
+
+      debugPrint('📡 Warga Response Status: ${response.statusCode}');
+      debugPrint('📦 Warga Response Body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final transformedData = data.map((item) => {
-          'id': item['_id'], 
-          'warga_id': item['warga_id']?['_id'],
-          'nama_warga': item['warga_id']?['nama_lengkap'] ?? 'Anonim',
-          'jenis_iuran': item['jenis_iuran'] ?? 'Iuran',
-          'nominal': item['nominal'] ?? 0,
-          'status': item['status'] ?? 'Belum Lunas',
-          'tanggal_bayar': item['tanggal_bayar'],
-          'metode_pembayaran': item['metode_pembayaran'] ?? '-',
-        }).toList();
-        return {'success': true, 'data': transformedData};
+        
+        if (data is! List) {
+          return {
+            'success': false,
+            'message': 'Format data warga tidak valid',
+            'data': []
+          };
+        }
+        
+        debugPrint('✅ Warga count: ${data.length}');
+        return {'success': true, 'data': data};
       } else {
         return _handleResponse(response);
       }
-    } catch (e) {
-      return {'success': false, 'message': 'Terjadi kesalahan: $e'};
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error in getWarga: $e');
+      debugPrint('Stack: $stackTrace');
+      return {'success': false, 'message': 'Terjadi kesalahan: $e', 'data': []};
     }
   }
 
-  // --- PERBAIKAN: Mengganti URL /users/warga yang error 404 ---
-  // Get Warga (dipakai di dropdown Iuran Admin)
-  Future<Map<String, dynamic>> getWarga() async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/admin/warga'), // Menggunakan endpoint admin yang valid
-        headers: await _getHeaders(),
-      );
-      return _handleResponse(response);
-    } catch (e) {
-      return {'success': false, 'message': 'Terjadi kesalahan: $e'};
-    }
-  }
-  // --- BATAS PERBAIKAN ---
-
-  // Bayar Iuran (ini dipakai oleh Admin IuranPage)
+  // Bayar Iuran - FIXED
   Future<Map<String, dynamic>> bayarIuran(
-      String wargaId, 
-      int nominal, 
-      String bulan, 
-      int tahun, 
+      String wargaId,
+      int nominal,
+      String bulan,
+      int tahun,
       String metodePembayaran) async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final userDataString = prefs.getString('user_data');
+
+      if (userDataString == null) {
+        return {'success': false, 'message': 'Admin tidak terautentikasi. Silakan login ulang.'};
+      }
+
+      final userData = jsonDecode(userDataString);
+      final pembuatId = userData['_id'];
+
+      final requestBody = {
+        'warga_id': wargaId,
+        'pembuat_id': pembuatId,
+        'jenis_iuran': 'Iuran RT',
+        'jumlah': nominal,
+        'periode_bulan': bulan,
+        'periode_tahun': tahun,
+        'metode_pembayaran': metodePembayaran,
+        'status_pembayaran': 'Lunas',
+        'tanggal_bayar': DateTime.now().toIso8601String(),
+      };
+
+      debugPrint('📤 Bayar Iuran Request: $requestBody');
+
       final response = await http.post(
-        Uri.parse('$baseUrl/iuran'), // Endpoint ini sepertinya untuk *membuat* tagihan baru
+        Uri.parse('$baseUrl/admin/iuran'),
         headers: await _getHeaders(),
-        body: jsonEncode({
-          'warga_id': wargaId,
-          'nominal': nominal,
-          'bulan': bulan,
-          'tahun': tahun,
-          'metode_pembayaran': metodePembayaran,
-          // Seharusnya ada 'pembuat_id' (admin) di sini, tapi kita ikuti logika IuranPage
-        }),
+        body: jsonEncode(requestBody),
       );
-      return _handleResponse(response);
-    } catch (e) {
+
+      debugPrint('📥 Bayar Iuran Response (${response.statusCode}): ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return {'success': true, 'data': jsonDecode(response.body)};
+      } else {
+        return _handleResponse(response);
+      }
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error bayar iuran: $e');
+      debugPrint('Stack: $stackTrace');
       return {'success': false, 'message': 'Terjadi kesalahan: $e'};
     }
   }
 
-  // Delete Iuran
+  // Delete Iuran - FIXED
   Future<Map<String, dynamic>> deleteIuran(String id) async {
     try {
+      debugPrint('🗑️ Deleting iuran: $id');
+      
       final response = await http.delete(
-        Uri.parse('$baseUrl/iuran/$id'),
+        Uri.parse('$baseUrl/admin/iuran/$id'),
         headers: await _getHeaders(),
       );
-      return _handleResponse(response);
-    } catch (e) {
+
+      debugPrint('📥 Delete Response (${response.statusCode}): ${response.body}');
+      
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': 'Data berhasil dihapus'};
+      } else {
+        return _handleResponse(response);
+      }
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error delete iuran: $e');
+      debugPrint('Stack: $stackTrace');
       return {'success': false, 'message': 'Terjadi kesalahan: $e'};
     }
   }
 
-  // --- TAMBAHAN BARU: Fungsi untuk upload bukti bayar ---
-  Future<Map<String, dynamic>> uploadPaymentProof(String iuranId, Uint8List imageBytes, String fileName) async {
+  // Upload Payment Proof - FIXED
+  Future<Map<String, dynamic>> uploadPaymentProof(
+      String iuranId, 
+      Uint8List imageBytes, 
+      String fileName) async {
     try {
+      debugPrint('📤 Uploading payment proof for iuran: $iuranId');
+      
       final uri = Uri.parse('$baseUrl/iuran/$iuranId/upload-proof');
       final request = http.MultipartRequest('PUT', uri);
       
-      // Tambahkan token header
       final token = await _getToken();
       if (token != null) {
         request.headers['Authorization'] = 'Bearer $token';
       }
       
-      // Tambahkan file gambar dari bytes
       request.files.add(
         http.MultipartFile.fromBytes(
-          'bukti_pembayaran', // Nama field (harus sama dengan di backend)
+          'bukti_pembayaran',
           imageBytes,
-          filename: fileName // Nama file aslinya
+          filename: fileName,
         )
       );
 
+      debugPrint('📤 Uploading file: $fileName (${imageBytes.length} bytes)');
+
       final response = await request.send();
       final responseBody = await response.stream.bytesToString();
-      final decodedData = jsonDecode(responseBody);
+      
+      debugPrint('📥 Upload Response (${response.statusCode}): $responseBody');
 
       if (response.statusCode == 200) {
+        final decodedData = jsonDecode(responseBody);
         return {'success': true, 'data': decodedData};
       } else {
-        return {'success': false, 'message': decodedData['message'] ?? 'Gagal upload bukti'};
+        final decodedData = jsonDecode(responseBody);
+        return {
+          'success': false, 
+          'message': decodedData['message'] ?? 'Gagal upload bukti'
+        };
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error upload payment proof: $e');
+      debugPrint('Stack: $stackTrace');
       return {'success': false, 'message': 'Terjadi kesalahan: $e'};
     }
   }
-  // --- BATAS FUNGSI BARU ---
 
-// --- TAMBAHKAN FUNGSI INI ---
-  // Untuk Admin memverifikasi/menolak pembayaran
+  // Update Iuran Status - FIXED
   Future<Map<String, dynamic>> updateIuranStatus(String iuranId, String status) async {
     try {
+      debugPrint('🔄 Updating iuran $iuranId to status: $status');
+      
+      final requestBody = {
+        'status_pembayaran': status,
+      };
+      
+      if (status == 'Lunas') {
+        requestBody['tanggal_bayar'] = DateTime.now().toIso8601String();
+      }
+
+      debugPrint('📤 Update Status Request: $requestBody');
+
       final response = await http.put(
-        Uri.parse('$baseUrl/iuran/$iuranId'), // Menggunakan endpoint PUT iuran yang sudah ada
+        Uri.parse('$baseUrl/admin/iuran/$iuranId'),
         headers: await _getHeaders(),
-        body: jsonEncode({
-          'status_pembayaran': status,
-        }),
+        body: jsonEncode(requestBody),
       );
-      return _handleResponse(response);
-    } catch (e) {
+
+      debugPrint('📥 Update Status Response (${response.statusCode}): ${response.body}');
+      
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': jsonDecode(response.body)};
+      } else {
+        return _handleResponse(response);
+      }
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error update status: $e');
+      debugPrint('Stack: $stackTrace');
       return {'success': false, 'message': 'Terjadi kesalahan: $e'};
     }
   }
+
+  // Update Iuran Info - FIXED
+  Future<Map<String, dynamic>> updateIuranInfo(String iuranId, Map<String, dynamic> updateData) async {
+    try {
+      debugPrint('✏️ Updating iuran info: $iuranId');
+      debugPrint('📤 Update Data: $updateData');
+
+      final requestBody = {
+        if (updateData.containsKey('jenis_iuran'))
+          'jenis_iuran': updateData['jenis_iuran'],
+        if (updateData.containsKey('jumlah'))
+          'jumlah': updateData['jumlah'],
+        if (updateData.containsKey('periode_bulan'))
+          'periode_bulan': updateData['periode_bulan'],
+        if (updateData.containsKey('periode_tahun'))
+          'periode_tahun': updateData['periode_tahun'],
+      };
+
+      final response = await http.put(
+        Uri.parse('$baseUrl/admin/iuran/$iuranId'),
+        headers: await _getHeaders(),
+        body: jsonEncode(requestBody),
+      );
+
+      debugPrint('📥 Update Info Response (${response.statusCode}): ${response.body}');
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': jsonDecode(response.body)};
+      } else {
+        return _handleResponse(response);
+      }
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error update iuran info: $e');
+      debugPrint('Stack: $stackTrace');
+      return {'success': false, 'message': 'Terjadi kesalahan: $e'};
+    }
+  }
+
+  // ==================== END IURAN METHODS ====================
+
   // Get Kegiatan (Admin)
   Future<Map<String, dynamic>> getKegiatan() async {
     try {
@@ -832,4 +1035,226 @@ class ApiService {
       return {'success': false, 'message': 'Terjadi kesalahan: $e'};
     }
   }
+
+  // Create Mass Iuran - FIXED
+  Future<Map<String, dynamic>> createMassIuran(Map<String, dynamic> iuranData) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userDataString = prefs.getString('user_data');
+      
+      if (userDataString == null) {
+        return {'success': false, 'message': 'Admin tidak terautentikasi'};
+      }
+      
+      final userData = jsonDecode(userDataString);
+      
+      final requestBody = {
+        'pembuat_id': userData['_id'],
+        'judul_iuran': iuranData['judul_iuran'],
+        'jenis_iuran': iuranData['jenis_iuran'],
+        'jumlah': iuranData['jumlah'],
+        'periode': {
+          'bulan': iuranData['periode_bulan'],
+          'tahun': iuranData['periode_tahun'],
+        },
+        'jatuh_tempo': iuranData['jatuh_tempo'],
+      };
+
+      debugPrint('📤 Create Mass Iuran Request: $requestBody');
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/admin/iuran/massal'),
+        headers: await _getHeaders(),
+        body: jsonEncode(requestBody),
+      );
+
+      debugPrint('📥 Create Mass Iuran Response (${response.statusCode}): ${response.body}');
+      
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return {'success': true, 'data': jsonDecode(response.body)};
+      } else {
+        return _handleResponse(response);
+      }
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error create mass iuran: $e');
+      debugPrint('Stack: $stackTrace');
+      return {'success': false, 'message': 'Terjadi kesalahan: $e'};
+    }
+  }
+
+  // Get Mass Iuran Info (templates/information)
+  Future<Map<String, dynamic>> getMassIuranInfo() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/admin/iuran/massal'),
+        headers: await _getHeaders(),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Terjadi kesalahan: $e'};
+    }
+  }
+
+  // Update Mass Iuran Info
+  Future<Map<String, dynamic>> updateMassIuranInfo(String id, Map<String, dynamic> updateData) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/admin/iuran/massal/$id'),
+        headers: await _getHeaders(),
+        body: jsonEncode(updateData),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Terjadi kesalahan: $e'};
+    }
+  }
+
+  // Delete Mass Iuran Info
+  Future<Map<String, dynamic>> deleteMassIuranInfo(String id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/admin/iuran/massal/$id'),
+        headers: await _getHeaders(),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Terjadi kesalahan: $e'};
+    }
+  }
+
+  // ==================== SURAT PENGANTAR METHODS ====================
+
+  // Get Surat Pengantar (User - melihat pengajuannya sendiri)
+  Future<Map<String, dynamic>> getSuratPengantar() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/surat-pengantar'),
+        headers: await _getHeaders(),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final transformedData = data.map((item) => {
+          'id': item['_id'],
+          'jenis_surat': item['jenis_surat'] ?? 'Tidak diketahui',
+          'keperluan': item['keperluan'] ?? '',
+          'keterangan': item['keterangan'] ?? '',
+          'status_pengajuan': item['status_pengajuan'] ?? 'Diajukan',
+          'tanggapan_admin': item['tanggapan_admin'] ?? '',
+          'file_surat': item['file_surat'] ?? '',
+          'tanggal_pengajuan': item['createdAt'] != null
+              ? DateTime.parse(item['createdAt']).toString().split(' ')[0]
+              : '',
+          'nama_pengaju': item['pengaju_id']?['nama_lengkap'] ?? 'Anonim',
+        }).toList();
+        return {'success': true, 'data': transformedData};
+      } else {
+        return _handleResponse(response);
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Terjadi kesalahan: $e'};
+    }
+  }
+
+  // Create Surat Pengantar (User) - UPDATED FOR FILE UPLOAD
+  Future<Map<String, dynamic>> createSuratPengantar(Map<String, dynamic> suratData, {List<http.MultipartFile>? files}) async {
+    try {
+      final token = await _getToken();
+      final headers = {
+        'Authorization': 'Bearer $token',
+      };
+
+      final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/surat-pengantar'));
+      request.headers.addAll(headers);
+
+      // Add text fields
+      suratData.forEach((key, value) {
+        if (value != null) {
+          request.fields[key] = value.toString();
+        }
+      });
+
+      // Add files if provided
+      if (files != null) {
+        request.files.addAll(files);
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      return _handleResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Terjadi kesalahan: $e'};
+    }
+  }
+
+  // Get Surat Pengantar Admin (Admin - melihat semua pengajuan)
+  Future<Map<String, dynamic>> getSuratPengantarAdmin() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/surat-pengantar/admin'),
+        headers: await _getHeaders(),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final transformedData = data.map((item) => {
+          'id': item['_id'],
+          'jenis_surat': item['jenis_surat'] ?? 'Tidak diketahui',
+          'keperluan': item['keperluan'] ?? '',
+          'keterangan': item['keterangan'] ?? '',
+          'status_pengajuan': item['status_pengajuan'] ?? 'Diajukan',
+          'tanggapan_admin': item['tanggapan_admin'] ?? '',
+          'file_surat': item['file_surat'] ?? '',
+          'tanggal_pengajuan': item['createdAt'] != null
+              ? DateTime.parse(item['createdAt']).toString().split(' ')[0]
+              : '',
+          'nama_pengaju': item['pengaju_id']?['nama_lengkap'] ?? 'Anonim',
+          'email_pengaju': item['pengaju_id']?['email'] ?? '',
+        }).toList();
+        return {'success': true, 'data': transformedData};
+      } else {
+        return _handleResponse(response);
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Terjadi kesalahan: $e'};
+    }
+  }
+
+  // Update Status Surat Pengantar (Admin)
+  Future<Map<String, dynamic>> updateStatusSuratPengantar(String id, String status, String tanggapan, String? fileUrl) async {
+    try {
+      final requestBody = {
+        'status_pengajuan': status,
+        'tanggapan_admin': tanggapan,
+      };
+
+      if (fileUrl != null && fileUrl.isNotEmpty) {
+        requestBody['file_surat'] = fileUrl;
+      }
+
+      final response = await http.put(
+        Uri.parse('$baseUrl/surat-pengantar/$id'),
+        headers: await _getHeaders(),
+        body: jsonEncode(requestBody),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Terjadi kesalahan: $e'};
+    }
+  }
+
+  // Delete Surat Pengantar
+  Future<Map<String, dynamic>> deleteSuratPengantar(String id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/surat-pengantar/$id'),
+        headers: await _getHeaders(),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Terjadi kesalahan: $e'};
+    }
+  }
 }
+          
