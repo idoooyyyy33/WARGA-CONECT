@@ -1,12 +1,11 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 
 class ApiService {
-  // --- PERHATIAN: Menggunakan ngrok untuk akses otomatis ---
-  static const String baseUrl = 'https://bereft-tammie-inaudibly.ngrok-free.dev/api';
+  // --- PERHATIAN: Menggunakan IP untuk akses otomatis ---
+  static const String baseUrl = 'http://192.168.1.5:3000/api';
 
   // Helper untuk handle response
   Map<String, dynamic> _handleResponse(http.Response response) {
@@ -27,12 +26,16 @@ class ApiService {
         return {
           'success': false,
           'message': errorMessage,
-          'statusCode': response.statusCode
+          'statusCode': response.statusCode,
         };
       }
     } catch (e) {
       if (e is FormatException && response.body.contains('<!DOCTYPE')) {
-         return {'success': false, 'message': 'Error: Server mengirimkan HTML, bukan JSON. Cek URL API atau log server. (Status: ${response.statusCode})'};
+        return {
+          'success': false,
+          'message':
+              'Error: Server mengirimkan HTML, bukan JSON. Cek URL API atau log server. (Status: ${response.statusCode})',
+        };
       }
       return {'success': false, 'message': 'Gagal memproses data: $e'};
     }
@@ -54,7 +57,7 @@ class ApiService {
   Future<void> _clearToken() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('token');
-    await prefs.remove('user_data'); 
+    await prefs.remove('user_data');
   }
 
   // Headers with authorization
@@ -72,10 +75,7 @@ class ApiService {
       final response = await http.post(
         Uri.parse('$baseUrl/users/login'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': email,
-          'password': password,
-        }),
+        body: jsonEncode({'email': email, 'password': password}),
       );
 
       final data = jsonDecode(response.body);
@@ -157,14 +157,20 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final transformedData = data.map((item) => {
-          'title': item['judul'] ?? 'Pengumuman',
-          'description': item['isi'] ?? '',
-          'date': item['tanggal_dibuat'] != null
-              ? DateTime.parse(item['tanggal_dibuat']).toString().split(' ')[0]
-              : '',
-          'author': item['penulis_id']?['nama_lengkap'] ?? 'Admin',
-        }).toList();
+        final transformedData = data
+            .map(
+              (item) => {
+                'title': item['judul'] ?? 'Pengumuman',
+                'description': item['isi'] ?? '',
+                'date': item['tanggal_dibuat'] != null
+                    ? DateTime.parse(
+                        item['tanggal_dibuat'],
+                      ).toString().split(' ')[0]
+                    : '',
+                'author': item['penulis_id']?['nama_lengkap'] ?? 'Admin',
+              },
+            )
+            .toList();
         return {'success': true, 'data': transformedData};
       } else {
         return _handleResponse(response);
@@ -184,17 +190,36 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final transformedData = data.map((item) => {
-          'id': item['_id'],
-          'title': item['judul_laporan'] ?? 'Laporan',
-          'description': item['isi_laporan'] ?? '',
-          'category': item['kategori_laporan'] ?? 'Lainnya',
-          'status': item['status_laporan'] ?? 'Menunggu',
-          'date': item['tanggal_dibuat'] != null
-              ? DateTime.parse(item['tanggal_dibuat']).toString().split(' ')[0]
-              : '',
-          'author': item['pelapor_id']?['nama_lengkap'] ?? 'Anonim',
-        }).toList();
+
+        // Debug: Print raw API response
+        debugPrint('DEBUG API: Raw response data: $data');
+
+        final transformedData = data
+            .map(
+              (item) => {
+                'id': item['_id'],
+                'title': item['judul_laporan'] ?? item['judul'] ?? 'Laporan',
+                'description': item['isi_laporan'] ?? item['deskripsi'] ?? '',
+                'category':
+                    item['kategori_laporan'] ?? item['kategori'] ?? 'Lainnya',
+                'status':
+                    item['status_laporan'] ?? item['status'] ?? 'Diterima',
+                'date': item['createdAt'] != null
+                    ? DateTime.parse(item['createdAt']).toString().split('T')[0]
+                    : '',
+                'author': item['pelapor_id']?['nama_lengkap'] ?? 'Anonim',
+              },
+            )
+            .toList();
+
+        // Debug: Print transformed data
+        debugPrint('DEBUG API: Transformed ${transformedData.length} reports');
+        if (transformedData.isNotEmpty) {
+          debugPrint(
+            'DEBUG API: First report - Title: ${transformedData[0]['title']}, Status: ${transformedData[0]['status']}, Author: ${transformedData[0]['author']}',
+          );
+        }
+
         return {'success': true, 'data': transformedData};
       } else {
         return _handleResponse(response);
@@ -205,12 +230,17 @@ class ApiService {
   }
 
   // Create Report
-  Future<Map<String, dynamic>> createReport(Map<String, dynamic> reportData) async {
+  Future<Map<String, dynamic>> createReport(
+    Map<String, dynamic> reportData,
+  ) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final userDataString = prefs.getString('user_data');
       if (userDataString == null) {
-        return {'success': false, 'message': 'User tidak terautentikasi. Silakan login ulang.'};
+        return {
+          'success': false,
+          'message': 'User tidak terautentikasi. Silakan login ulang.',
+        };
       }
       final userData = jsonDecode(userDataString);
       final pelaporId = userData['_id'];
@@ -238,20 +268,26 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final transformedData = data.map((item) => {
-          'id': item['_id'],
-          'title': item['judul'] ?? 'Iuran',
-          'description': item['judul'] ?? 'Pembayaran iuran',
-          'amount': item['jumlah'] ?? 0,
-          'status': item['status_pembayaran'] ?? 'Menunggu',
-          'type': item['kategori'] ?? 'Iuran',
-          'date': item['tanggal_tenggat'] != null
-              ? DateTime.parse(item['tanggal_tenggat']).toString().split(' ')[0]
-              : '',
-          'periode': item['periode'] != null
-              ? '${item['periode']['bulan']}/${item['periode']['tahun']}'
-              : '',
-        }).toList();
+        final transformedData = data
+            .map(
+              (item) => {
+                'id': item['_id'],
+                'title': item['judul'] ?? 'Iuran',
+                'description': item['judul'] ?? 'Pembayaran iuran',
+                'amount': item['jumlah'] ?? 0,
+                'status': item['status_pembayaran'] ?? 'Menunggu',
+                'type': item['kategori'] ?? 'Iuran',
+                'date': item['tanggal_tenggat'] != null
+                    ? DateTime.parse(
+                        item['tanggal_tenggat'],
+                      ).toString().split(' ')[0]
+                    : '',
+                'periode': item['periode'] != null
+                    ? '${item['periode']['bulan']}/${item['periode']['tahun']}'
+                    : '',
+              },
+            )
+            .toList();
         return {'success': true, 'data': transformedData};
       } else {
         return _handleResponse(response);
@@ -271,15 +307,21 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final transformedData = data.map((item) => {
-          'title': item['nama_kegiatan'] ?? 'Kegiatan',
-          'description': item['deskripsi'] ?? '',
-          'date': item['tanggal_mulai'] != null
-              ? DateTime.parse(item['tanggal_mulai']).toString().split(' ')[0]
-              : '',
-          'location': item['lokasi'] ?? 'Lokasi belum ditentukan',
-          'fullDescription': item['deskripsi'] ?? '',
-        }).toList();
+        final transformedData = data
+            .map(
+              (item) => {
+                'title': item['nama_kegiatan'] ?? 'Kegiatan',
+                'description': item['deskripsi'] ?? '',
+                'date': item['tanggal_mulai'] != null
+                    ? DateTime.parse(
+                        item['tanggal_mulai'],
+                      ).toString().split(' ')[0]
+                    : '',
+                'location': item['lokasi'] ?? 'Lokasi belum ditentukan',
+                'fullDescription': item['deskripsi'] ?? '',
+              },
+            )
+            .toList();
         return {'success': true, 'data': transformedData};
       } else {
         return _handleResponse(response);
@@ -299,15 +341,19 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final transformedData = data.map((item) => {
-          'name': item['nama_usaha'] ?? 'UMKM',
-          'title': item['nama_usaha'] ?? 'UMKM',
-          'category': item['kategori_usaha'] ?? 'Lainnya',
-          'description': item['deskripsi_usaha'] ?? '',
-          'owner': item['pemilik_id']?['nama_lengkap'] ?? 'Anonim',
-          'phone': item['kontak']?['telepon'] ?? '',
-          'address': item['lokasi'] ?? '',
-        }).toList();
+        final transformedData = data
+            .map(
+              (item) => {
+                'name': item['nama_usaha'] ?? 'UMKM',
+                'title': item['nama_usaha'] ?? 'UMKM',
+                'category': item['kategori_usaha'] ?? 'Lainnya',
+                'description': item['deskripsi_usaha'] ?? '',
+                'owner': item['pemilik_id']?['nama_lengkap'] ?? 'Anonim',
+                'phone': item['kontak']?['telepon'] ?? '',
+                'address': item['lokasi'] ?? '',
+              },
+            )
+            .toList();
         return {'success': true, 'data': transformedData};
       } else {
         return _handleResponse(response);
@@ -331,7 +377,10 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> verifyAdminCode(String email, String code) async {
+  Future<Map<String, dynamic>> verifyAdminCode(
+    String email,
+    String code,
+  ) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/admin/verify-code'),
@@ -361,10 +410,10 @@ class ApiService {
   Future<Map<String, dynamic>> getAktivitasTerbaru() async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/admin/aktivitas'), 
+        Uri.parse('$baseUrl/admin/aktivitas'),
         headers: await _getHeaders(),
       );
-      return _handleResponse(response); 
+      return _handleResponse(response);
     } catch (e) {
       return {'success': false, 'message': 'Terjadi kesalahan: $e'};
     }
@@ -380,19 +429,23 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final transformedData = data.map((item) => {
-          'id': item['_id'],
-          'judul': item['judul_laporan'] ?? 'Laporan',
-          'deskripsi': item['isi_laporan'] ?? '',
-          'kategori': item['kategori_laporan'] ?? 'Lainnya',
-          'status': item['status_laporan'] ?? 'Menunggu',
-          'tanggal': item['createdAt'] != null
-              ? DateTime.parse(item['createdAt']).toString().split(' ')[0]
-              : '',
-          'nama_pelapor': item['pelapor_id']?['nama_lengkap'] ?? 'Anonim',
-          'lokasi': item['lokasi'] ?? '',
-          'tanggapan': item['tanggapan'] ?? '',
-        }).toList();
+        final transformedData = data
+            .map(
+              (item) => {
+                'id': item['_id'],
+                'judul': item['judul_laporan'] ?? 'Laporan',
+                'deskripsi': item['isi_laporan'] ?? '',
+                'kategori': item['kategori_laporan'] ?? 'Lainnya',
+                'status': item['status_laporan'] ?? 'Menunggu',
+                'tanggal': item['createdAt'] != null
+                    ? DateTime.parse(item['createdAt']).toString().split(' ')[0]
+                    : '',
+                'nama_pelapor': item['pelapor_id']?['nama_lengkap'] ?? 'Anonim',
+                'lokasi': item['lokasi'] ?? '',
+                'tanggapan': item['tanggapan'] ?? '',
+              },
+            )
+            .toList();
         return {'success': true, 'data': transformedData};
       } else {
         return _handleResponse(response);
@@ -403,15 +456,16 @@ class ApiService {
   }
 
   // Update Status Laporan
-  Future<Map<String, dynamic>> updateStatusLaporan(String id, String status, String tanggapan) async {
+  Future<Map<String, dynamic>> updateStatusLaporan(
+    String id,
+    String status,
+    String tanggapan,
+  ) async {
     try {
       final response = await http.put(
         Uri.parse('$baseUrl/admin/laporan/$id'),
         headers: await _getHeaders(),
-        body: jsonEncode({
-          'status_laporan': status,
-          'tanggapan': tanggapan,
-        }),
+        body: jsonEncode({'status_laporan': status, 'tanggapan': tanggapan}),
       );
       return _handleResponse(response);
     } catch (e) {
@@ -433,7 +487,7 @@ class ApiService {
   }
 
   // ==================== IURAN METHODS (FIXED) ====================
-  
+
   // Get Iuran (Admin) - FIXED
   Future<Map<String, dynamic>> getIuran({int? bulan, int? tahun}) async {
     try {
@@ -445,34 +499,31 @@ class ApiService {
         queryParams['tahun'] = tahun.toString();
       }
 
-      final uri = Uri.parse('$baseUrl/admin/iuran').replace(
-        queryParameters: queryParams.isNotEmpty ? queryParams : null
-      );
+      final uri = Uri.parse(
+        '$baseUrl/admin/iuran',
+      ).replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
 
       debugPrint('🔍 Fetching iuran from: $uri');
 
-      final response = await http.get(
-        uri,
-        headers: await _getHeaders(),
-      );
+      final response = await http.get(uri, headers: await _getHeaders());
 
       debugPrint('📡 Response Status: ${response.statusCode}');
       debugPrint('📦 Response Body: ${response.body}');
 
       if (response.statusCode == 200) {
         final rawData = jsonDecode(response.body);
-        
+
         if (rawData is! List) {
           debugPrint('❌ ERROR: Response bukan List');
           return {
-            'success': false, 
+            'success': false,
             'message': 'Format data tidak valid dari server',
-            'data': []
+            'data': [],
           };
         }
 
         final List<Map<String, dynamic>> transformedData = [];
-        
+
         for (var item in rawData) {
           try {
             debugPrint('📄 Processing: ${item['_id']}');
@@ -480,19 +531,27 @@ class ApiService {
             debugPrint('   Status: ${item['status_pembayaran']}');
             debugPrint('   Jumlah: ${item['jumlah']}');
             debugPrint('   Bukti: ${item['bukti_pembayaran']}');
-            
+
             transformedData.add({
               'id': item['_id']?.toString() ?? '',
               'warga_id': item['warga_id']?['_id']?.toString() ?? '',
-              'nama_warga': item['warga_id']?['nama_lengkap']?.toString() ?? 'Tidak Diketahui',
+              'nama_warga':
+                  item['warga_id']?['nama_lengkap']?.toString() ??
+                  'Tidak Diketahui',
               'jenis_iuran': item['jenis_iuran']?.toString() ?? 'Iuran RT',
-              'nominal': (item['jumlah'] is int) ? item['jumlah'] : int.tryParse(item['jumlah']?.toString() ?? '0') ?? 0,
+              'nominal': (item['jumlah'] is int)
+                  ? item['jumlah']
+                  : int.tryParse(item['jumlah']?.toString() ?? '0') ?? 0,
               'status': item['status_pembayaran']?.toString() ?? 'Belum Lunas',
               'tanggal_bayar': item['tanggal_bayar']?.toString(),
               'metode_pembayaran': item['metode_pembayaran']?.toString() ?? '-',
               'bukti_pembayaran': item['bukti_pembayaran']?.toString(),
-              'periode_bulan': item['periode']?['bulan']?.toString() ?? item['periode_bulan']?.toString() ?? '',
-              'periode_tahun': item['periode']?['tahun'] ?? item['periode_tahun'] ?? 0,
+              'periode_bulan':
+                  item['periode']?['bulan']?.toString() ??
+                  item['periode_bulan']?.toString() ??
+                  '',
+              'periode_tahun':
+                  item['periode']?['tahun'] ?? item['periode_tahun'] ?? 0,
             });
           } catch (e) {
             debugPrint('⚠️ Error processing item: $e');
@@ -517,7 +576,7 @@ class ApiService {
   Future<Map<String, dynamic>> getWarga() async {
     try {
       debugPrint('🔍 Fetching warga list...');
-      
+
       final response = await http.get(
         Uri.parse('$baseUrl/admin/warga'),
         headers: await _getHeaders(),
@@ -528,15 +587,15 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        
+
         if (data is! List) {
           return {
             'success': false,
             'message': 'Format data warga tidak valid',
-            'data': []
+            'data': [],
           };
         }
-        
+
         debugPrint('✅ Warga count: ${data.length}');
         return {'success': true, 'data': data};
       } else {
@@ -551,17 +610,21 @@ class ApiService {
 
   // Bayar Iuran - FIXED
   Future<Map<String, dynamic>> bayarIuran(
-      String wargaId,
-      int nominal,
-      String bulan,
-      int tahun,
-      String metodePembayaran) async {
+    String wargaId,
+    int nominal,
+    String bulan,
+    int tahun,
+    String metodePembayaran,
+  ) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final userDataString = prefs.getString('user_data');
 
       if (userDataString == null) {
-        return {'success': false, 'message': 'Admin tidak terautentikasi. Silakan login ulang.'};
+        return {
+          'success': false,
+          'message': 'Admin tidak terautentikasi. Silakan login ulang.',
+        };
       }
 
       final userData = jsonDecode(userDataString);
@@ -587,7 +650,9 @@ class ApiService {
         body: jsonEncode(requestBody),
       );
 
-      debugPrint('📥 Bayar Iuran Response (${response.statusCode}): ${response.body}');
+      debugPrint(
+        '📥 Bayar Iuran Response (${response.statusCode}): ${response.body}',
+      );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         return {'success': true, 'data': jsonDecode(response.body)};
@@ -605,14 +670,16 @@ class ApiService {
   Future<Map<String, dynamic>> deleteIuran(String id) async {
     try {
       debugPrint('🗑️ Deleting iuran: $id');
-      
+
       final response = await http.delete(
         Uri.parse('$baseUrl/admin/iuran/$id'),
         headers: await _getHeaders(),
       );
 
-      debugPrint('📥 Delete Response (${response.statusCode}): ${response.body}');
-      
+      debugPrint(
+        '📥 Delete Response (${response.statusCode}): ${response.body}',
+      );
+
       if (response.statusCode == 200) {
         return {'success': true, 'message': 'Data berhasil dihapus'};
       } else {
@@ -627,33 +694,34 @@ class ApiService {
 
   // Upload Payment Proof - FIXED
   Future<Map<String, dynamic>> uploadPaymentProof(
-      String iuranId, 
-      Uint8List imageBytes, 
-      String fileName) async {
+    String iuranId,
+    Uint8List imageBytes,
+    String fileName,
+  ) async {
     try {
       debugPrint('📤 Uploading payment proof for iuran: $iuranId');
-      
+
       final uri = Uri.parse('$baseUrl/iuran/$iuranId/upload-proof');
       final request = http.MultipartRequest('PUT', uri);
-      
+
       final token = await _getToken();
       if (token != null) {
         request.headers['Authorization'] = 'Bearer $token';
       }
-      
+
       request.files.add(
         http.MultipartFile.fromBytes(
           'bukti_pembayaran',
           imageBytes,
           filename: fileName,
-        )
+        ),
       );
 
       debugPrint('📤 Uploading file: $fileName (${imageBytes.length} bytes)');
 
       final response = await request.send();
       final responseBody = await response.stream.bytesToString();
-      
+
       debugPrint('📥 Upload Response (${response.statusCode}): $responseBody');
 
       if (response.statusCode == 200) {
@@ -662,8 +730,8 @@ class ApiService {
       } else {
         final decodedData = jsonDecode(responseBody);
         return {
-          'success': false, 
-          'message': decodedData['message'] ?? 'Gagal upload bukti'
+          'success': false,
+          'message': decodedData['message'] ?? 'Gagal upload bukti',
         };
       }
     } catch (e, stackTrace) {
@@ -674,14 +742,15 @@ class ApiService {
   }
 
   // Update Iuran Status - FIXED
-  Future<Map<String, dynamic>> updateIuranStatus(String iuranId, String status) async {
+  Future<Map<String, dynamic>> updateIuranStatus(
+    String iuranId,
+    String status,
+  ) async {
     try {
       debugPrint('🔄 Updating iuran $iuranId to status: $status');
-      
-      final requestBody = {
-        'status_pembayaran': status,
-      };
-      
+
+      final requestBody = {'status_pembayaran': status};
+
       if (status == 'Lunas') {
         requestBody['tanggal_bayar'] = DateTime.now().toIso8601String();
       }
@@ -694,8 +763,10 @@ class ApiService {
         body: jsonEncode(requestBody),
       );
 
-      debugPrint('📥 Update Status Response (${response.statusCode}): ${response.body}');
-      
+      debugPrint(
+        '📥 Update Status Response (${response.statusCode}): ${response.body}',
+      );
+
       if (response.statusCode == 200) {
         return {'success': true, 'data': jsonDecode(response.body)};
       } else {
@@ -709,7 +780,10 @@ class ApiService {
   }
 
   // Update Iuran Info - FIXED
-  Future<Map<String, dynamic>> updateIuranInfo(String iuranId, Map<String, dynamic> updateData) async {
+  Future<Map<String, dynamic>> updateIuranInfo(
+    String iuranId,
+    Map<String, dynamic> updateData,
+  ) async {
     try {
       debugPrint('✏️ Updating iuran info: $iuranId');
       debugPrint('📤 Update Data: $updateData');
@@ -717,8 +791,7 @@ class ApiService {
       final requestBody = {
         if (updateData.containsKey('jenis_iuran'))
           'jenis_iuran': updateData['jenis_iuran'],
-        if (updateData.containsKey('jumlah'))
-          'jumlah': updateData['jumlah'],
+        if (updateData.containsKey('jumlah')) 'jumlah': updateData['jumlah'],
         if (updateData.containsKey('periode_bulan'))
           'periode_bulan': updateData['periode_bulan'],
         if (updateData.containsKey('periode_tahun'))
@@ -731,7 +804,9 @@ class ApiService {
         body: jsonEncode(requestBody),
       );
 
-      debugPrint('📥 Update Info Response (${response.statusCode}): ${response.body}');
+      debugPrint(
+        '📥 Update Info Response (${response.statusCode}): ${response.body}',
+      );
 
       if (response.statusCode == 200) {
         return {'success': true, 'data': jsonDecode(response.body)};
@@ -757,16 +832,23 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final transformedData = data.map((item) => {
-          'id': item['_id'],
-          'nama_kegiatan': item['nama_kegiatan'] ?? 'Kegiatan',
-          'deskripsi': item['deskripsi'] ?? '',
-          'tanggal_mulai': item['tanggal_kegiatan'] != null
-              ? DateTime.parse(item['tanggal_kegiatan']).toString().split(' ')[0]
-              : '',
-          'lokasi': item['lokasi'] ?? '',
-          'penanggung_jawab': item['penanggung_jawab_id']?['nama_lengkap'] ?? 'Admin',
-        }).toList();
+        final transformedData = data
+            .map(
+              (item) => {
+                'id': item['_id'],
+                'nama_kegiatan': item['nama_kegiatan'] ?? 'Kegiatan',
+                'deskripsi': item['deskripsi'] ?? '',
+                'tanggal_mulai': item['tanggal_kegiatan'] != null
+                    ? DateTime.parse(
+                        item['tanggal_kegiatan'],
+                      ).toString().split(' ')[0]
+                    : '',
+                'lokasi': item['lokasi'] ?? '',
+                'penanggung_jawab':
+                    item['penanggung_jawab_id']?['nama_lengkap'] ?? 'Admin',
+              },
+            )
+            .toList();
         return {'success': true, 'data': transformedData};
       } else {
         return _handleResponse(response);
@@ -777,7 +859,16 @@ class ApiService {
   }
 
   // Update Kegiatan
-  Future<Map<String, dynamic>> updateKegiatan(String id, String nama, String deskripsi, String tanggal, String waktu, String lokasi, String kategori, String penyelenggara) async {
+  Future<Map<String, dynamic>> updateKegiatan(
+    String id,
+    String nama,
+    String deskripsi,
+    String tanggal,
+    String waktu,
+    String lokasi,
+    String kategori,
+    String penyelenggara,
+  ) async {
     try {
       final response = await http.put(
         Uri.parse('$baseUrl/kegiatan/$id'),
@@ -799,7 +890,15 @@ class ApiService {
   }
 
   // Create Kegiatan
-  Future<Map<String, dynamic>> createKegiatan(String nama, String deskripsi, String tanggal, String waktu, String lokasi, String kategori, String penyelenggara) async {
+  Future<Map<String, dynamic>> createKegiatan(
+    String nama,
+    String deskripsi,
+    String tanggal,
+    String waktu,
+    String lokasi,
+    String kategori,
+    String penyelenggara,
+  ) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/kegiatan'),
@@ -843,17 +942,21 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final transformedData = data.map((item) => {
-          'id': item['_id'],
-          'judul': item['judul'] ?? 'Pengumuman',
-          'isi': item['isi'] ?? '',
-          'penjelasan': item['penjelasan'] ?? '',
-          'prioritas': item['prioritas'] ?? 'normal',
-          'tanggal': item['createdAt'] != null
-              ? DateTime.parse(item['createdAt']).toString()
-              : '',
-          'penulis': item['penulis_id']?['nama_lengkap'] ?? 'Admin',
-        }).toList();
+        final transformedData = data
+            .map(
+              (item) => {
+                'id': item['_id'],
+                'judul': item['judul'] ?? 'Pengumuman',
+                'isi': item['isi'] ?? '',
+                'penjelasan': item['penjelasan'] ?? '',
+                'prioritas': item['prioritas'] ?? 'normal',
+                'tanggal': item['createdAt'] != null
+                    ? DateTime.parse(item['createdAt']).toString()
+                    : '',
+                'penulis': item['penulis_id']?['nama_lengkap'] ?? 'Admin',
+              },
+            )
+            .toList();
         return {'success': true, 'data': transformedData};
       } else {
         return _handleResponse(response);
@@ -864,7 +967,13 @@ class ApiService {
   }
 
   // Update Pengumuman
-  Future<Map<String, dynamic>> updatePengumuman(String id, String judul, String isi, String prioritas, String penjelasan) async {
+  Future<Map<String, dynamic>> updatePengumuman(
+    String id,
+    String judul,
+    String isi,
+    String prioritas,
+    String penjelasan,
+  ) async {
     try {
       final response = await http.put(
         Uri.parse('$baseUrl/pengumuman/$id'),
@@ -883,7 +992,12 @@ class ApiService {
   }
 
   // Create Pengumuman
-  Future<Map<String, dynamic>> createPengumuman(String judul, String isi, String prioritas, String penjelasan) async {
+  Future<Map<String, dynamic>> createPengumuman(
+    String judul,
+    String isi,
+    String prioritas,
+    String penjelasan,
+  ) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final userDataString = prefs.getString('user_data');
@@ -954,7 +1068,10 @@ class ApiService {
   }
 
   // Update UMKM
-  Future<Map<String, dynamic>> updateUMKM(String id, Map<String, dynamic> umkmData) async {
+  Future<Map<String, dynamic>> updateUMKM(
+    String id,
+    Map<String, dynamic> umkmData,
+  ) async {
     try {
       final response = await http.put(
         Uri.parse('$baseUrl/admin/umkm/$id'),
@@ -996,7 +1113,9 @@ class ApiService {
   }
 
   // Create Warga
-  Future<Map<String, dynamic>> createWarga(Map<String, dynamic> wargaData) async {
+  Future<Map<String, dynamic>> createWarga(
+    Map<String, dynamic> wargaData,
+  ) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/admin/warga'),
@@ -1010,7 +1129,10 @@ class ApiService {
   }
 
   // Update Warga
-  Future<Map<String, dynamic>> updateWarga(String id, Map<String, dynamic> wargaData) async {
+  Future<Map<String, dynamic>> updateWarga(
+    String id,
+    Map<String, dynamic> wargaData,
+  ) async {
     try {
       final response = await http.put(
         Uri.parse('$baseUrl/admin/warga/$id'),
@@ -1037,17 +1159,19 @@ class ApiService {
   }
 
   // Create Mass Iuran - FIXED
-  Future<Map<String, dynamic>> createMassIuran(Map<String, dynamic> iuranData) async {
+  Future<Map<String, dynamic>> createMassIuran(
+    Map<String, dynamic> iuranData,
+  ) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final userDataString = prefs.getString('user_data');
-      
+
       if (userDataString == null) {
         return {'success': false, 'message': 'Admin tidak terautentikasi'};
       }
-      
+
       final userData = jsonDecode(userDataString);
-      
+
       final requestBody = {
         'pembuat_id': userData['_id'],
         'judul_iuran': iuranData['judul_iuran'],
@@ -1068,8 +1192,10 @@ class ApiService {
         body: jsonEncode(requestBody),
       );
 
-      debugPrint('📥 Create Mass Iuran Response (${response.statusCode}): ${response.body}');
-      
+      debugPrint(
+        '📥 Create Mass Iuran Response (${response.statusCode}): ${response.body}',
+      );
+
       if (response.statusCode == 200 || response.statusCode == 201) {
         return {'success': true, 'data': jsonDecode(response.body)};
       } else {
@@ -1096,7 +1222,10 @@ class ApiService {
   }
 
   // Update Mass Iuran Info
-  Future<Map<String, dynamic>> updateMassIuranInfo(String id, Map<String, dynamic> updateData) async {
+  Future<Map<String, dynamic>> updateMassIuranInfo(
+    String id,
+    Map<String, dynamic> updateData,
+  ) async {
     try {
       final response = await http.put(
         Uri.parse('$baseUrl/admin/iuran/massal/$id'),
@@ -1134,19 +1263,23 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final transformedData = data.map((item) => {
-          'id': item['_id'],
-          'jenis_surat': item['jenis_surat'] ?? 'Tidak diketahui',
-          'keperluan': item['keperluan'] ?? '',
-          'keterangan': item['keterangan'] ?? '',
-          'status_pengajuan': item['status_pengajuan'] ?? 'Diajukan',
-          'tanggapan_admin': item['tanggapan_admin'] ?? '',
-          'file_surat': item['file_surat'] ?? '',
-          'tanggal_pengajuan': item['createdAt'] != null
-              ? DateTime.parse(item['createdAt']).toString().split(' ')[0]
-              : '',
-          'nama_pengaju': item['pengaju_id']?['nama_lengkap'] ?? 'Anonim',
-        }).toList();
+        final transformedData = data
+            .map(
+              (item) => {
+                'id': item['_id'],
+                'jenis_surat': item['jenis_surat'] ?? 'Tidak diketahui',
+                'keperluan': item['keperluan'] ?? '',
+                'keterangan': item['keterangan'] ?? '',
+                'status_pengajuan': item['status_pengajuan'] ?? 'Diajukan',
+                'tanggapan_admin': item['tanggapan_admin'] ?? '',
+                'file_surat': item['file_surat'] ?? '',
+                'tanggal_pengajuan': item['createdAt'] != null
+                    ? DateTime.parse(item['createdAt']).toString().split(' ')[0]
+                    : '',
+                'nama_pengaju': item['pengaju_id']?['nama_lengkap'] ?? 'Anonim',
+              },
+            )
+            .toList();
         return {'success': true, 'data': transformedData};
       } else {
         return _handleResponse(response);
@@ -1157,14 +1290,18 @@ class ApiService {
   }
 
   // Create Surat Pengantar (User) - UPDATED FOR FILE UPLOAD
-  Future<Map<String, dynamic>> createSuratPengantar(Map<String, dynamic> suratData, {List<http.MultipartFile>? files}) async {
+  Future<Map<String, dynamic>> createSuratPengantar(
+    Map<String, dynamic> suratData, {
+    List<http.MultipartFile>? files,
+  }) async {
     try {
       final token = await _getToken();
-      final headers = {
-        'Authorization': 'Bearer $token',
-      };
+      final headers = {'Authorization': 'Bearer $token'};
 
-      final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/surat-pengantar'));
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/surat-pengantar'),
+      );
       request.headers.addAll(headers);
 
       // Add text fields
@@ -1198,20 +1335,24 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final transformedData = data.map((item) => {
-          'id': item['_id'],
-          'jenis_surat': item['jenis_surat'] ?? 'Tidak diketahui',
-          'keperluan': item['keperluan'] ?? '',
-          'keterangan': item['keterangan'] ?? '',
-          'status_pengajuan': item['status_pengajuan'] ?? 'Diajukan',
-          'tanggapan_admin': item['tanggapan_admin'] ?? '',
-          'file_surat': item['file_surat'] ?? '',
-          'tanggal_pengajuan': item['createdAt'] != null
-              ? DateTime.parse(item['createdAt']).toString().split(' ')[0]
-              : '',
-          'nama_pengaju': item['pengaju_id']?['nama_lengkap'] ?? 'Anonim',
-          'email_pengaju': item['pengaju_id']?['email'] ?? '',
-        }).toList();
+        final transformedData = data
+            .map(
+              (item) => {
+                'id': item['_id'],
+                'jenis_surat': item['jenis_surat'] ?? 'Tidak diketahui',
+                'keperluan': item['keperluan'] ?? '',
+                'keterangan': item['keterangan'] ?? '',
+                'status_pengajuan': item['status_pengajuan'] ?? 'Diajukan',
+                'tanggapan_admin': item['tanggapan_admin'] ?? '',
+                'file_surat': item['file_surat'] ?? '',
+                'tanggal_pengajuan': item['createdAt'] != null
+                    ? DateTime.parse(item['createdAt']).toString().split(' ')[0]
+                    : '',
+                'nama_pengaju': item['pengaju_id']?['nama_lengkap'] ?? 'Anonim',
+                'email_pengaju': item['pengaju_id']?['email'] ?? '',
+              },
+            )
+            .toList();
         return {'success': true, 'data': transformedData};
       } else {
         return _handleResponse(response);
@@ -1222,7 +1363,12 @@ class ApiService {
   }
 
   // Update Status Surat Pengantar (Admin)
-  Future<Map<String, dynamic>> updateStatusSuratPengantar(String id, String status, String tanggapan, String? fileUrl) async {
+  Future<Map<String, dynamic>> updateStatusSuratPengantar(
+    String id,
+    String status,
+    String tanggapan,
+    String? fileUrl,
+  ) async {
     try {
       final requestBody = {
         'status_pengajuan': status,
@@ -1257,4 +1403,3 @@ class ApiService {
     }
   }
 }
-          

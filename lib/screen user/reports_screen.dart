@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 // --- TAMBAHAN --- (Jika Anda belum punya provider)
-// import 'package:provider/provider.dart'; 
-// import '../providers/auth_provider.dart'; 
+// import 'package:provider/provider.dart';
+// import '../providers/auth_provider.dart';
 // import 'dart:convert';
-
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -26,14 +25,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   Future<void> _loadReports() async {
     setState(() => _isLoading = true);
-    
+
     final result = await _apiService.getReports();
-    
+
     if (mounted) {
       setState(() {
         _isLoading = false;
         if (result['success']) {
           _reports = result['data'] is List ? result['data'] : [];
+          // Debug: Print the first report to check data structure
+          if (_reports.isNotEmpty) {
+            print('DEBUG: First report data: ${_reports[0]}');
+          }
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -50,8 +53,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
   void _showCreateReportDialog() {
     final titleController = TextEditingController();
     final descriptionController = TextEditingController();
-    String selectedCategory = 'Kebersihan'; // --- PERBAIKAN --- Pastikan ini cocok dengan backend
-    
+    String selectedCategory =
+        'Kebersihan'; // --- PERBAIKAN --- Pastikan ini cocok dengan backend
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -94,7 +98,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Category Dropdown
                 Container(
                   decoration: BoxDecoration(
@@ -108,13 +112,19 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       isExpanded: true,
                       icon: const Icon(Icons.keyboard_arrow_down_rounded),
                       // --- PERBAIKAN --- (Opsional: pastikan value ini sesuai dengan enum di backend jika ada)
-                      items: ['Kebersihan', 'Keamanan', 'Infrastruktur', 'Lainnya']
-                          .map((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
+                      items:
+                          [
+                            'Kebersihan',
+                            'Keamanan',
+                            'Infrastruktur',
+                            'UMKM',
+                            'Lainnya',
+                          ].map((String value) {
+                            return DropdownMenuItem<String>(
+                              value: value,
+                              child: Text(value),
+                            );
+                          }).toList(),
                       onChanged: (String? newValue) {
                         setModalState(() {
                           selectedCategory = newValue!;
@@ -123,9 +133,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // Title Field
                 TextField(
                   controller: titleController,
@@ -140,9 +150,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // Description Field
                 TextField(
                   controller: descriptionController,
@@ -158,15 +168,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 24),
-                
+
                 // Submit Button
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () async {
-                      if (titleController.text.isEmpty || 
+                      if (titleController.text.isEmpty ||
                           descriptionController.text.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
@@ -176,9 +186,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         );
                         return;
                       }
-                      
+
                       Navigator.pop(context); // Tutup dialog
-                      
+
                       // --- PERBAIKAN --- Ganti nama field agar Sesuai Backend
                       final result = await _apiService.createReport({
                         'kategori_laporan': selectedCategory,
@@ -187,7 +197,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         // 'pelapor_id' akan ditambahkan otomatis oleh api_service.dart
                       });
                       // --- BATAS PERBAIKAN ---
-                      
+
                       if (mounted) {
                         if (result['success']) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -200,7 +210,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text(result['message'] ?? 'Gagal membuat laporan'),
+                              content: Text(
+                                result['message'] ?? 'Gagal membuat laporan',
+                              ),
                               backgroundColor: Colors.red,
                             ),
                           );
@@ -269,7 +281,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: IconButton(
-                            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                            icon: const Icon(
+                              Icons.arrow_back_rounded,
+                              color: Colors.white,
+                            ),
                             onPressed: () => Navigator.pop(context),
                           ),
                         ),
@@ -299,38 +314,38 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       ),
                     )
                   : _reports.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.report_outlined,
-                                size: 80,
-                                color: Colors.grey[300],
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Belum ada laporan',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.grey[600],
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.report_outlined,
+                            size: 80,
+                            color: Colors.grey[300],
                           ),
-                        )
-                      : RefreshIndicator(
-                          onRefresh: _loadReports,
-                          child: ListView.builder(
-                            padding: const EdgeInsets.all(20),
-                            itemCount: _reports.length,
-                            itemBuilder: (context, index) {
-                              final report = _reports[index];
-                              return _buildReportCard(report);
-                            },
+                          const SizedBox(height: 16),
+                          Text(
+                            'Belum ada laporan',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                        ),
+                        ],
+                      ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _loadReports,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(20),
+                        itemCount: _reports.length,
+                        itemBuilder: (context, index) {
+                          final report = _reports[index];
+                          return _buildReportCard(report);
+                        },
+                      ),
+                    ),
             ),
           ],
         ),
@@ -341,10 +356,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         icon: const Icon(Icons.add_rounded, color: Colors.white),
         label: const Text(
           'Buat Laporan',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
       ),
     );
@@ -372,7 +384,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFED7AA),
                     borderRadius: BorderRadius.circular(8),
@@ -388,7 +403,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 ),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: _getStatusColor(report['status']).withOpacity(0.2),
                     borderRadius: BorderRadius.circular(8),
@@ -424,19 +442,30 @@ class _ReportsScreenState extends State<ReportsScreen> {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-            if (report['date'] != null) ...[
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Icon(Icons.access_time_rounded, size: 14, color: Colors.grey[400]),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.person_rounded, size: 14, color: Colors.grey[400]),
+                const SizedBox(width: 4),
+                Text(
+                  report['author'] ?? 'Anonim',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                ),
+                const Spacer(),
+                if (report['date'] != null) ...[
+                  Icon(
+                    Icons.access_time_rounded,
+                    size: 14,
+                    color: Colors.grey[400],
+                  ),
                   const SizedBox(width: 4),
                   Text(
                     report['date'],
                     style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                   ),
                 ],
-              ),
-            ],
+              ],
+            ),
           ],
         ),
       ),
@@ -450,6 +479,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
       case 'proses':
       case 'diproses': // --- TAMBAHAN --- (Menangani status 'Diproses' dari admin)
         return Colors.blue;
+      case 'diterima':
+        return Colors.blue; // Blue for received/accepted
       default: // 'Menunggu' atau status tidak dikenal
         return Colors.orange;
     }

@@ -1,11 +1,11 @@
-// 1. Impor semua library yang dibutuhkan
+// 1. Import semua library yang dibutuhkan
 const express = require('express');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const cors = require('cors');
-const path = require('path'); // --- TAMBAHAN 1: Impor modul 'path' ---
+const path = require('path');
 
-// --- Impor file route user ---
+// --- Import file route ---
 const userRoutes = require('./routes/user.routes');
 const pengumumanRoutes = require('./routes/pengumuman.routes');
 const laporanRoutes = require('./routes/laporan.routes.js');
@@ -14,6 +14,7 @@ const kegiatanRoutes = require('./routes/kegiatan.routes.js');
 const umkmRoutes = require('./routes/umkm.routes.js');
 const adminRoutes = require('./routes/admin.routes');
 const suratPengantarRoutes = require('./routes/surat_pengantar.routes');
+
 // 2. Load konfigurasi dari file .env
 dotenv.config();
 
@@ -21,46 +22,65 @@ dotenv.config();
 const app = express();
 
 // --- Konfigurasi Middleware ---
-app.use(cors());
-app.use(express.json()); // Agar Express bisa membaca JSON
-app.use(express.urlencoded({ extended: true })); // Untuk parsing form data
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// --- TAMBAHAN 2: Izinkan folder 'uploads' diakses secara publik ---
-// Ini akan membuat file di 'uploads/bukti_bayar' bisa dilihat oleh aplikasi
-// Contoh: http://172.168.47.153:3000/uploads/bukti_bayar/namagambar.jpg
+// --- Static files ---
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-// --- BATAS TAMBAHAN ---
-
 
 // Ambil PORT dari file .env, atau gunakan 3000 jika tidak ada
 const PORT = process.env.PORT || 3000;
 
-// Ambil koneksi string dari .env (terima kedua nama env yang mungkin digunakan)
+// Ambil koneksi string dari .env
 const dbURI = process.env.MONGO_URI || process.env.MONGODB_URI;
 
 // Cek jika koneksi DB ada
 if (!dbURI) {
-  console.error("Error: MONGO_URI atau MONGODB_URI tidak ditemukan di file .env");
+  console.error("❌ Error: MONGO_URI atau MONGODB_URI tidak ditemukan di file .env");
   process.exit(1);
 }
 
 // 5. Hubungkan ke MongoDB
-mongoose.connect(dbURI)
-  .then(() => {
-    console.log("✅ Berhasil terhubung ke MongoDB (wargaconnect_db)");
+mongoose.connect(dbURI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+.then(() => {
+  console.log("✅ Berhasil terhubung ke MongoDB");
 
-    // 6. Jalankan server HANYA JIKA koneksi DB berhasil
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 Server berjalan di http://10.61.5.241:${PORT}`); // Updated IP
-    });
-  })
-  .catch((err) => {
-    console.error("Error: Gagal terhubung ke MongoDB", err);
-  });
+  // 6. Jalankan server HANYA JIKA koneksi DB berhasil
+  app.listen(PORT, '192.168.1.5', () => {
+    console.log(`🚀 Server berjalan di http://192.168.1.5:${PORT}`);
+    console.log(`🚀 Akses juga via http://localhost:${PORT}`);
+    console.log(`🚀 API base URL: http://192.168.1.5:${PORT}/api`);
+  });
+})
+.catch((err) => {
+  console.error("❌ Gagal terhubung ke MongoDB:", err);
+  process.exit(1);
+});
 
-// 7. Contoh "route" sederhana untuk tes
+// 7. Route sederhana untuk tes
 app.get('/', (req, res) => {
-  res.send('Selamat datang di WargaConnect API!');
+  res.json({
+    success: true,
+    message: 'Selamat datang di WargaConnect API!',
+    version: '1.0.0',
+    endpoints: {
+      users: '/api/users',
+      pengumuman: '/api/pengumuman',
+      laporan: '/api/laporan',
+      iuran: '/api/iuran',
+      kegiatan: '/api/kegiatan',
+      umkm: '/api/umkm',
+      admin: '/api/admin',
+      suratPengantar: '/api/surat-pengantar'
+    }
+  });
 });
 
 // --- Menghubungkan Routes ---
@@ -72,3 +92,35 @@ app.use('/api/kegiatan', kegiatanRoutes);
 app.use('/api/umkm', umkmRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/surat-pengantar', suratPengantarRoutes);
+
+// --- Error Handling Middleware ---
+app.use((err, req, res, next) => {
+  console.error('❌ Error:', err);
+  res.status(500).json({
+    success: false,
+    message: 'Internal server error',
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
+});
+
+// --- 404 Handler ---
+// Use app.all instead of app.use with wildcard pattern to avoid path-to-regexp issues
+// Use a path-less `app.use` so router/path-to-regexp is not invoked here
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: `Route ${req.originalUrl} not found`,
+    availableRoutes: [
+      '/api/users',
+      '/api/pengumuman',
+      '/api/laporan',
+      '/api/iuran',
+      '/api/kegiatan',
+      '/api/umkm',
+      '/api/admin',
+      '/api/surat-pengantar'
+    ]
+  });
+});
+
+module.exports = app;

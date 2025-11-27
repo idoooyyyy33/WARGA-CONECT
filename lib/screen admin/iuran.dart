@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/api_service.dart';
-import 'package:intl/intl.dart'; 
+import 'package:intl/intl.dart';
 
 class IuranPage extends StatefulWidget {
   final VoidCallback? onBackPressed;
@@ -25,10 +25,25 @@ class _IuranPageState extends State<IuranPage> {
   Map<String, dynamic>? _iuranInfo;
 
   // Menambah filter 'Menunggu Verifikasi'
-  final List<String> _filterOptions = ['Semua', 'Menunggu Verifikasi', 'Lunas', 'Belum Lunas'];
+  final List<String> _filterOptions = [
+    'Semua',
+    'Menunggu Verifikasi',
+    'Lunas',
+    'Belum Lunas',
+  ];
   final List<String> _bulanList = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    'Januari',
+    'Februari',
+    'Maret',
+    'April',
+    'Mei',
+    'Juni',
+    'Juli',
+    'Agustus',
+    'September',
+    'Oktober',
+    'November',
+    'Desember',
   ];
 
   @override
@@ -37,74 +52,98 @@ class _IuranPageState extends State<IuranPage> {
     _loadData();
   }
 
-Future<void> _loadData() async {
-  setState(() => _isLoading = true);
-  try {
-    // --- PERBAIKAN: Kirim bulan dan tahun ke API ---
-    final iuranResult = await _apiService.getIuran(
-      bulan: _selectedMonth,
-      tahun: _selectedYear,
-    );
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+    try {
+      // --- PERBAIKAN: Kirim bulan dan tahun ke API ---
+      final iuranResult = await _apiService.getIuran(
+        bulan: _selectedMonth,
+        tahun: _selectedYear,
+      );
 
-    // --- TAMBAHAN: Load data warga ---
-    final wargaResult = await _apiService.getWarga();
+      // --- TAMBAHAN: Load data warga ---
+      final wargaResult = await _apiService.getWarga();
 
-    // ⭐ DEBUG: Print response untuk melihat struktur data
-    debugPrint('=== IURAN RESULT ===');
-    debugPrint('Success: ${iuranResult['success']}');
-    debugPrint('Message: ${iuranResult['message']}');
-    debugPrint('Data: ${iuranResult['data']}');
-    debugPrint('Data Length: ${(iuranResult['data'] as List?)?.length ?? 0}');
+      // ⭐ DEBUG: Print response untuk melihat struktur data
+      debugPrint('=== IURAN RESULT ===');
+      debugPrint('Success: ${iuranResult['success']}');
+      debugPrint('Message: ${iuranResult['message']}');
+      debugPrint('Data: ${iuranResult['data']}');
+      debugPrint('Data Length: ${(iuranResult['data'] as List?)?.length ?? 0}');
 
-    debugPrint('=== WARGA RESULT ===');
-    debugPrint('Success: ${wargaResult['success']}');
-    debugPrint('Data Length: ${(wargaResult['data'] as List?)?.length ?? 0}');
+      debugPrint('=== WARGA RESULT ===');
+      debugPrint('Success: ${wargaResult['success']}');
+      debugPrint('Data Length: ${(wargaResult['data'] as List?)?.length ?? 0}');
 
-    if (mounted) {
-      if (iuranResult['success'] && wargaResult['success']) {
-        final iuranData = iuranResult['data'];
-        final wargaData = wargaResult['data'];
+      if (mounted) {
+        if (iuranResult['success'] && wargaResult['success']) {
+          final iuranData = iuranResult['data'];
+          final wargaData = wargaResult['data'];
 
-        // ⭐ Validasi apakah data adalah List
-        if (iuranData is! List) {
-          debugPrint('ERROR: iuranData bukan List, tipe: ${iuranData.runtimeType}');
+          // ⭐ Validasi apakah data adalah List
+          if (iuranData is! List) {
+            debugPrint(
+              'ERROR: iuranData bukan List, tipe: ${iuranData.runtimeType}',
+            );
+          }
+          if (wargaData is! List) {
+            debugPrint(
+              'ERROR: wargaData bukan List, tipe: ${wargaData.runtimeType}',
+            );
+          }
+
+          setState(() {
+            _iuranList = iuranData is List ? iuranData : [];
+            _wargaList = wargaData is List ? wargaData : [];
+            _isLoading = false;
+          });
+
+          debugPrint(
+            'Data berhasil dimuat: ${_iuranList.length} iuran, ${_wargaList.length} warga',
+          );
+        } else {
+          _showSnackBar(
+            iuranResult['message'] ??
+                wargaResult['message'] ??
+                'Gagal memuat data',
+            isError: true,
+          );
+          setState(() => _isLoading = false);
         }
-        if (wargaData is! List) {
-          debugPrint('ERROR: wargaData bukan List, tipe: ${wargaData.runtimeType}');
-        }
-
-        setState(() {
-          _iuranList = iuranData is List ? iuranData : [];
-          _wargaList = wargaData is List ? wargaData : [];
-          _isLoading = false;
-        });
-
-        debugPrint('Data berhasil dimuat: ${_iuranList.length} iuran, ${_wargaList.length} warga');
-      } else {
-        _showSnackBar(
-          iuranResult['message'] ?? wargaResult['message'] ?? 'Gagal memuat data',
-          isError: true
-        );
+      }
+    } catch (e, stackTrace) {
+      debugPrint('Error loading data: $e');
+      debugPrint('Stack trace: $stackTrace');
+      if (mounted) {
         setState(() => _isLoading = false);
+        _showSnackBar('Error: $e', isError: true);
       }
     }
-  } catch (e, stackTrace) {
-    debugPrint('Error loading data: $e');
-    debugPrint('Stack trace: $stackTrace');
-    if (mounted) {
-      setState(() => _isLoading = false);
-      _showSnackBar('Error: $e', isError: true);
-    }
   }
-}
-  Future<void> _bayarIuran(String wargaId, int nominal, String bulan, int tahun, String metodePembayaran) async {
+
+  Future<void> _bayarIuran(
+    String wargaId,
+    int nominal,
+    String bulan,
+    int tahun,
+    String metodePembayaran,
+  ) async {
     try {
-      final result = await _apiService.bayarIuran(wargaId, nominal, bulan, tahun, metodePembayaran);
+      final result = await _apiService.bayarIuran(
+        wargaId,
+        nominal,
+        bulan,
+        tahun,
+        metodePembayaran,
+      );
       if (result['success']) {
         _showSnackBar('Pembayaran iuran berhasil dicatat', isError: false);
         _loadData();
       } else {
-        _showSnackBar(result['message'] ?? 'Gagal mencatat pembayaran', isError: true);
+        _showSnackBar(
+          result['message'] ?? 'Gagal mencatat pembayaran',
+          isError: true,
+        );
       }
     } catch (e) {
       _showSnackBar('Error: $e', isError: true);
@@ -113,7 +152,7 @@ Future<void> _loadData() async {
 
   Future<void> _deleteIuran(String id) async {
     try {
-      final result = await _apiService.deleteIuran(id); 
+      final result = await _apiService.deleteIuran(id);
       if (result['success']) {
         _showSnackBar('Data iuran berhasil dihapus', isError: false);
         _loadData();
@@ -128,20 +167,25 @@ Future<void> _loadData() async {
   // Fungsi untuk update status (Setujui/Tolak)
   Future<void> _updateIuranStatus(String iuranId, String newStatus) async {
     setState(() => _isUpdatingStatus = true);
-    
+
     try {
       // Panggil fungsi API yang sudah kita tambahkan di api_service.dart
       final result = await _apiService.updateIuranStatus(iuranId, newStatus);
-      
+
       if (mounted) {
         if (result['success']) {
           _showSnackBar(
-            newStatus == 'Lunas' ? 'Pembayaran Disetujui' : 'Pembayaran Ditolak', 
-            isError: false
+            newStatus == 'Lunas'
+                ? 'Pembayaran Disetujui'
+                : 'Pembayaran Ditolak',
+            isError: false,
           );
           _loadData(); // Refresh data
         } else {
-          _showSnackBar(result['message'] ?? 'Gagal update status', isError: true);
+          _showSnackBar(
+            result['message'] ?? 'Gagal update status',
+            isError: true,
+          );
         }
       }
     } catch (e) {
@@ -158,7 +202,9 @@ Future<void> _loadData() async {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isError ? const Color(0xFFDC2626) : const Color(0xFF10B981),
+        backgroundColor: isError
+            ? const Color(0xFFDC2626)
+            : const Color(0xFF10B981),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
@@ -173,9 +219,18 @@ Future<void> _loadData() async {
       filtered = filtered.where((item) => item['status'] == 'Lunas').toList();
     } else if (_selectedFilter == 'Belum Lunas') {
       // Tampilkan juga yang statusnya null atau string kosong sebagai 'Belum Lunas'
-      filtered = filtered.where((item) => item['status'] == 'Belum Lunas' || item['status'] == null || item['status'] == '').toList();
+      filtered = filtered
+          .where(
+            (item) =>
+                item['status'] == 'Belum Lunas' ||
+                item['status'] == null ||
+                item['status'] == '',
+          )
+          .toList();
     } else if (_selectedFilter == 'Menunggu Verifikasi') {
-      filtered = filtered.where((item) => item['status'] == 'Menunggu Verifikasi').toList();
+      filtered = filtered
+          .where((item) => item['status'] == 'Menunggu Verifikasi')
+          .toList();
     }
 
     if (_searchQuery.isNotEmpty) {
@@ -202,7 +257,9 @@ Future<void> _loadData() async {
 
     for (var item in _iuranList) {
       final status = item['status']?.toString() ?? 'Belum Lunas';
-      debugPrint('Item: ${item['nama_warga']} - Status: $status - Nominal: ${item['nominal']}');
+      debugPrint(
+        'Item: ${item['nama_warga']} - Status: $status - Nominal: ${item['nominal']}',
+      );
 
       if (status == 'Lunas') {
         totalLunas++;
@@ -234,7 +291,6 @@ Future<void> _loadData() async {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildBackToDashboardButton(),
-        _buildHeader(),
         const SizedBox(height: 24),
         _buildStatsCards(),
         const SizedBox(height: 24),
@@ -243,9 +299,11 @@ Future<void> _loadData() async {
         _buildSearchBar(),
         const SizedBox(height: 24),
         _isLoading
-          ? _buildLoadingState()
-          : _isUpdatingStatus
-            ? const Center(child: CircularProgressIndicator(color: Color(0xFFF59E0B)))
+            ? _buildLoadingState()
+            : _isUpdatingStatus
+            ? const Center(
+                child: CircularProgressIndicator(color: Color(0xFFF59E0B)),
+              )
             : _buildIuranList(),
       ],
     );
@@ -257,7 +315,8 @@ Future<void> _loadData() async {
       child: Row(
         children: [
           IconButton(
-            onPressed: widget.onBackPressed ?? () => Navigator.of(context).pop(),
+            onPressed:
+                widget.onBackPressed ?? () => Navigator.of(context).pop(),
             icon: const Icon(Icons.arrow_back_rounded),
             style: IconButton.styleFrom(
               backgroundColor: Colors.white,
@@ -279,151 +338,6 @@ Future<void> _loadData() async {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFF59E0B).withOpacity(0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: const Icon(Icons.payment_rounded, color: Colors.white, size: 24),
-            ),
-            const SizedBox(width: 16),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Iuran RT',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF1A202C),
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Manajemen pembayaran iuran warga',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF64748B),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: InkWell(
-                onTap: () => _showBayarDialog(),
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFF59E0B).withOpacity(0.3),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.add_rounded, color: Colors.white, size: 20),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Catat Bayar',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: InkWell(
-                onTap: () => _showKelolaInformasiIuranDialog(),
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.04),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF59E0B).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(Icons.settings_rounded, color: Color(0xFFF59E0B), size: 18),
-                      ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'Kelola Informasi',
-                        style: TextStyle(
-                          color: Color(0xFF1A202C),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 
@@ -485,7 +399,12 @@ Future<void> _loadData() async {
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -557,7 +476,11 @@ Future<void> _loadData() async {
             ),
             child: Row(
               children: [
-                const Icon(Icons.calendar_month_rounded, color: Color(0xFF64748B), size: 20),
+                const Icon(
+                  Icons.calendar_month_rounded,
+                  color: Color(0xFF64748B),
+                  size: 20,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: DropdownButton<int>(
@@ -622,14 +545,14 @@ Future<void> _loadData() async {
           child: DropdownButton<String>(
             value: _selectedFilter,
             underline: const SizedBox(),
-            icon: const Icon(Icons.filter_list_rounded, color: Color(0xFF64748B)),
+            icon: const Icon(
+              Icons.filter_list_rounded,
+              color: Color(0xFF64748B),
+            ),
             padding: const EdgeInsets.symmetric(horizontal: 16),
             borderRadius: BorderRadius.circular(14),
             items: _filterOptions.map((String value) {
-              return DropdownMenuItem<String>(
-                value: value,
-                child: Text(value),
-              );
+              return DropdownMenuItem<String>(value: value, child: Text(value));
             }).toList(),
             onChanged: (String? newValue) {
               if (newValue != null) {
@@ -682,7 +605,10 @@ Future<void> _loadData() async {
           const SizedBox(height: 16),
           const Text(
             'Memuat data...',
-            style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+            style: TextStyle(
+              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),
@@ -711,15 +637,15 @@ Future<void> _loadData() async {
     final status = item['status']?.toString() ?? 'Belum Lunas';
     final tanggalBayar = item['tanggal_bayar']?.toString();
     final metodePembayaran = item['metode_pembayaran']?.toString() ?? '-';
-    final iuranId = item['id']?.toString(); 
+    final iuranId = item['id']?.toString();
     final buktiBayarPath = item['bukti_pembayaran']?.toString();
 
     final bool isLunas = status == 'Lunas';
     final bool isMenunggu = status == 'Menunggu Verifikasi';
     final Color statusColor = _getStatusColor(status);
-    final IconData statusIcon = isLunas 
-      ? Icons.check_circle_rounded 
-      : (isMenunggu ? Icons.hourglass_top_rounded : Icons.schedule_rounded);
+    final IconData statusIcon = isLunas
+        ? Icons.check_circle_rounded
+        : (isMenunggu ? Icons.hourglass_top_rounded : Icons.schedule_rounded);
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
@@ -748,7 +674,7 @@ Future<void> _loadData() async {
         ),
         child: Padding(
           padding: const EdgeInsets.all(20),
-          child: Column( 
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
@@ -779,7 +705,10 @@ Future<void> _loadData() async {
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: statusColor.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(6),
@@ -831,7 +760,11 @@ Future<void> _loadData() async {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    const Icon(Icons.calendar_today_rounded, size: 12, color: Color(0xFF94A3B8)),
+                    const Icon(
+                      Icons.calendar_today_rounded,
+                      size: 12,
+                      color: Color(0xFF94A3B8),
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       _formatDate(tanggalBayar),
@@ -842,7 +775,11 @@ Future<void> _loadData() async {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    const Icon(Icons.credit_card_rounded, size: 12, color: Color(0xFF94A3B8)),
+                    const Icon(
+                      Icons.credit_card_rounded,
+                      size: 12,
+                      color: Color(0xFF94A3B8),
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       metodePembayaran,
@@ -878,7 +815,7 @@ Future<void> _loadData() async {
                     ),
                   ),
                 ),
-              ]
+              ],
             ],
           ),
         ),
@@ -916,10 +853,7 @@ Future<void> _loadData() async {
           const SizedBox(height: 8),
           Text(
             'Data iuran untuk ${_bulanList[_selectedMonth - 1]} $_selectedYear belum tersedia',
-            style: const TextStyle(
-              fontSize: 14,
-              color: Color(0xFF64748B),
-            ),
+            style: const TextStyle(fontSize: 14, color: Color(0xFF64748B)),
           ),
         ],
       ),
@@ -953,7 +887,11 @@ Future<void> _loadData() async {
                           color: const Color(0xFFF59E0B).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(Icons.payment_rounded, color: Color(0xFFF59E0B), size: 24),
+                        child: const Icon(
+                          Icons.payment_rounded,
+                          color: Color(0xFFF59E0B),
+                          size: 24,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       const Expanded(
@@ -976,7 +914,9 @@ Future<void> _loadData() async {
                     decoration: InputDecoration(
                       labelText: 'Nominal (Rp)',
                       hintText: 'Masukkan nominal',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
                       prefixText: 'Rp ',
@@ -987,20 +927,25 @@ Future<void> _loadData() async {
                     value: selectedWargaId,
                     decoration: InputDecoration(
                       labelText: 'Pilih Warga',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
                     ),
                     items: _wargaList.map((warga) {
                       return DropdownMenuItem<String>(
                         value: warga['_id'].toString(),
-                        child: Text(warga['nama_lengkap'] ?? warga['nama'] ?? 'N/A'),
+                        child: Text(
+                          warga['nama_lengkap'] ?? warga['nama'] ?? 'N/A',
+                        ),
                       );
                     }).toList(),
                     onChanged: (value) {
                       setDialogState(() => selectedWargaId = value);
                     },
-                    validator: (value) => value == null ? 'Warga harus dipilih' : null,
+                    validator: (value) =>
+                        value == null ? 'Warga harus dipilih' : null,
                   ),
                   const SizedBox(height: 16),
                   const Text(
@@ -1020,17 +965,24 @@ Future<void> _loadData() async {
                         label: Text(metode),
                         selected: isSelected,
                         onSelected: (bool selected) {
-                          if (selected) setDialogState(() => selectedMetode = metode);
+                          if (selected)
+                            setDialogState(() => selectedMetode = metode);
                         },
                         selectedColor: const Color(0xFFF59E0B).withOpacity(0.2),
                         checkmarkColor: const Color(0xFFF59E0B),
                         backgroundColor: Colors.white,
                         side: BorderSide(
-                          color: isSelected ? const Color(0xFFF59E0B) : const Color(0xFFE2E8F0),
+                          color: isSelected
+                              ? const Color(0xFFF59E0B)
+                              : const Color(0xFFE2E8F0),
                         ),
                         labelStyle: TextStyle(
-                          color: isSelected ? const Color(0xFFF59E0B) : const Color(0xFF64748B),
-                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          color: isSelected
+                              ? const Color(0xFFF59E0B)
+                              : const Color(0xFF64748B),
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
                         ),
                       );
                     }).toList(),
@@ -1044,7 +996,9 @@ Future<void> _loadData() async {
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             side: const BorderSide(color: Color(0xFFE2E8F0)),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                           child: const Text('Batal'),
                         ),
@@ -1053,8 +1007,12 @@ Future<void> _loadData() async {
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () {
-                            if (nominalController.text.isEmpty || selectedWargaId == null) {
-                              _showSnackBar('Nominal dan warga harus diisi', isError: true);
+                            if (nominalController.text.isEmpty ||
+                                selectedWargaId == null) {
+                              _showSnackBar(
+                                'Nominal dan warga harus diisi',
+                                isError: true,
+                              );
                               return;
                             }
 
@@ -1071,7 +1029,9 @@ Future<void> _loadData() async {
                             backgroundColor: const Color(0xFFF59E0B),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                           child: const Text('Simpan'),
                         ),
@@ -1086,18 +1046,18 @@ Future<void> _loadData() async {
       ),
     );
   }
-  
- // --- TAMBAHAN: Dialog Verifikasi ---
+
+  // --- TAMBAHAN: Dialog Verifikasi ---
   void _showVerificationDialog(Map<String, dynamic> item) {
     final String iuranId = item['id']?.toString() ?? '';
     final String? buktiBayarPath = item['bukti_pembayaran']?.toString();
-    
+
     // Debug
     debugPrint('=== VERIFICATION DIALOG ===');
     debugPrint('Iuran ID: $iuranId');
     debugPrint('Bukti Path: $buktiBayarPath');
     debugPrint('Full item: $item');
-    
+
     // Membangun URL gambar dari backend
     String? imageUrl;
     if (buktiBayarPath != null && buktiBayarPath.isNotEmpty) {
@@ -1118,7 +1078,10 @@ Future<void> _loadData() async {
             children: [
               Text(
                 'Warga: ${item['nama_warga'] ?? 'N/A'}',
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
               ),
               const SizedBox(height: 4),
               Text('Jumlah: ${_formatRupiah(item['nominal'] ?? 0)}'),
@@ -1128,67 +1091,72 @@ Future<void> _loadData() async {
                 style: TextStyle(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 8),
-              
-              (imageUrl == null || imageUrl.isEmpty) 
-              ? Container(
-                  height: 200,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text(
-                    'Warga tidak melampirkan bukti',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                )
-              : Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    imageUrl,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Container(
-                        height: 200,
-                        alignment: Alignment.center,
-                        child: CircularProgressIndicator(
-                          value: loadingProgress.expectedTotalBytes != null
-                              ? loadingProgress.cumulativeBytesLoaded / 
-                                loadingProgress.expectedTotalBytes!
-                              : null,
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      debugPrint('Error loading image: $error');
-                      debugPrint('Image URL: $imageUrl');
-                      return Container(
-                        height: 200,
-                        alignment: Alignment.center,
+
+              (imageUrl == null || imageUrl.isEmpty)
+                  ? Container(
+                      height: 200,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
                         color: Colors.grey[200],
-                        child: const Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.error_outline, color: Colors.red, size: 40),
-                            SizedBox(height: 8),
-                            Text(
-                              'Gagal memuat bukti', 
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.red),
-                            ),
-                          ],
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'Warga tidak melampirkan bukti',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    )
+                  : Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              height: 200,
+                              alignment: Alignment.center,
+                              child: CircularProgressIndicator(
+                                value:
+                                    loadingProgress.expectedTotalBytes != null
+                                    ? loadingProgress.cumulativeBytesLoaded /
+                                          loadingProgress.expectedTotalBytes!
+                                    : null,
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            debugPrint('Error loading image: $error');
+                            debugPrint('Image URL: $imageUrl');
+                            return Container(
+                              height: 200,
+                              alignment: Alignment.center,
+                              color: Colors.grey[200],
+                              child: const Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.error_outline,
+                                    color: Colors.red,
+                                    size: 40,
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'Gagal memuat bukti',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
-                ),
-              ),
+                      ),
+                    ),
             ],
           ),
         ),
@@ -1198,7 +1166,9 @@ Future<void> _loadData() async {
               Navigator.pop(ctx);
               _updateIuranStatus(iuranId, 'Belum Lunas');
             },
-            style: TextButton.styleFrom(foregroundColor: const Color(0xFFDC2626)),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFFDC2626),
+            ),
             child: const Text('Tolak'),
           ),
           ElevatedButton(
@@ -1247,10 +1217,18 @@ Future<void> _loadData() async {
 
   void _showEditDialog(Map<String, dynamic> item) {
     final iuranId = item['id']?.toString() ?? '';
-    final jenisController = TextEditingController(text: item['jenis_iuran'] ?? 'Iuran RT');
-    final nominalController = TextEditingController(text: (item['nominal'] as int?)?.toString() ?? '0');
-    final bulanController = TextEditingController(text: item['periode_bulan'] ?? '');
-    final tahunController = TextEditingController(text: (item['periode_tahun'] as int?)?.toString() ?? '');
+    final jenisController = TextEditingController(
+      text: item['jenis_iuran'] ?? 'Iuran RT',
+    );
+    final nominalController = TextEditingController(
+      text: (item['nominal'] as int?)?.toString() ?? '0',
+    );
+    final bulanController = TextEditingController(
+      text: item['periode_bulan'] ?? '',
+    );
+    final tahunController = TextEditingController(
+      text: (item['periode_tahun'] as int?)?.toString() ?? '',
+    );
 
     showDialog(
       context: context,
@@ -1272,7 +1250,11 @@ Future<void> _loadData() async {
                         color: const Color(0xFFF59E0B).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.edit_rounded, color: Color(0xFFF59E0B), size: 24),
+                      child: const Icon(
+                        Icons.edit_rounded,
+                        color: Color(0xFFF59E0B),
+                        size: 24,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     const Expanded(
@@ -1292,7 +1274,9 @@ Future<void> _loadData() async {
                   controller: jenisController,
                   decoration: InputDecoration(
                     labelText: 'Jenis Iuran',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     filled: true,
                     fillColor: const Color(0xFFF8FAFC),
                   ),
@@ -1305,7 +1289,9 @@ Future<void> _loadData() async {
                   decoration: InputDecoration(
                     labelText: 'Nominal (Rp)',
                     hintText: 'Masukkan nominal',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     filled: true,
                     fillColor: const Color(0xFFF8FAFC),
                     prefixText: 'Rp ',
@@ -1319,7 +1305,9 @@ Future<void> _loadData() async {
                         controller: bulanController,
                         decoration: InputDecoration(
                           labelText: 'Bulan',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           filled: true,
                           fillColor: const Color(0xFFF8FAFC),
                         ),
@@ -1330,10 +1318,14 @@ Future<void> _loadData() async {
                       child: TextField(
                         controller: tahunController,
                         keyboardType: TextInputType.number,
-                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
                         decoration: InputDecoration(
                           labelText: 'Tahun',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           filled: true,
                           fillColor: const Color(0xFFF8FAFC),
                         ),
@@ -1350,7 +1342,9 @@ Future<void> _loadData() async {
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           side: const BorderSide(color: Color(0xFFE2E8F0)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                         child: const Text('Batal'),
                       ),
@@ -1363,7 +1357,10 @@ Future<void> _loadData() async {
                               nominalController.text.isEmpty ||
                               bulanController.text.isEmpty ||
                               tahunController.text.isEmpty) {
-                            _showSnackBar('Semua field harus diisi', isError: true);
+                            _showSnackBar(
+                              'Semua field harus diisi',
+                              isError: true,
+                            );
                             return;
                           }
 
@@ -1374,21 +1371,32 @@ Future<void> _loadData() async {
                             'periode_tahun': int.parse(tahunController.text),
                           };
 
-                          final result = await _apiService.updateIuranInfo(iuranId, updateData);
+                          final result = await _apiService.updateIuranInfo(
+                            iuranId,
+                            updateData,
+                          );
                           Navigator.pop(ctx);
 
                           if (result['success']) {
-                            _showSnackBar('Data iuran berhasil diperbarui', isError: false);
+                            _showSnackBar(
+                              'Data iuran berhasil diperbarui',
+                              isError: false,
+                            );
                             _loadData();
                           } else {
-                            _showSnackBar(result['message'] ?? 'Gagal memperbarui data', isError: true);
+                            _showSnackBar(
+                              result['message'] ?? 'Gagal memperbarui data',
+                              isError: true,
+                            );
                           }
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFF59E0B),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                         child: const Text('Simpan'),
                       ),
@@ -1403,7 +1411,12 @@ Future<void> _loadData() async {
     );
   }
 
-  Widget _buildInfoItem(String title, String value, IconData icon, {Color? color}) {
+  Widget _buildInfoItem(
+    String title,
+    String value,
+    IconData icon, {
+    Color? color,
+  }) {
     return Row(
       children: [
         Container(
@@ -1452,8 +1465,8 @@ Future<void> _loadData() async {
     return formatter.format(nominal);
   }
 
-  String _formatDate(String? date) { 
-    if (date == null) return ''; 
+  String _formatDate(String? date) {
+    if (date == null) return '';
     try {
       final dateTime = DateTime.parse(date);
       return DateFormat('dd MMM yyyy', 'id_ID').format(dateTime);
@@ -1467,7 +1480,9 @@ Future<void> _loadData() async {
       context: context,
       builder: (BuildContext context) {
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: Container(
             constraints: const BoxConstraints(maxWidth: 500),
             padding: const EdgeInsets.all(24),
@@ -1495,7 +1510,11 @@ Future<void> _loadData() async {
                           ),
                         ],
                       ),
-                      child: const Icon(Icons.settings_rounded, color: Colors.white, size: 24),
+                      child: const Icon(
+                        Icons.settings_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
                     ),
                     const SizedBox(width: 16),
                     const Expanded(
@@ -1552,7 +1571,11 @@ Future<void> _loadData() async {
                             color: const Color(0xFF3B82F6).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Icons.info_rounded, color: Color(0xFF3B82F6), size: 24),
+                          child: const Icon(
+                            Icons.info_rounded,
+                            color: Color(0xFF3B82F6),
+                            size: 24,
+                          ),
                         ),
                         const SizedBox(width: 16),
                         const Expanded(
@@ -1579,7 +1602,11 @@ Future<void> _loadData() async {
                             ],
                           ),
                         ),
-                        const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF64748B), size: 16),
+                        const Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          color: Color(0xFF64748B),
+                          size: 16,
+                        ),
                       ],
                     ),
                   ),
@@ -1616,7 +1643,11 @@ Future<void> _loadData() async {
                             color: const Color(0xFFF59E0B).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Icons.edit_rounded, color: Color(0xFFF59E0B), size: 24),
+                          child: const Icon(
+                            Icons.edit_rounded,
+                            color: Color(0xFFF59E0B),
+                            size: 24,
+                          ),
                         ),
                         const SizedBox(width: 16),
                         const Expanded(
@@ -1643,7 +1674,11 @@ Future<void> _loadData() async {
                             ],
                           ),
                         ),
-                        const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF64748B), size: 16),
+                        const Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          color: Color(0xFF64748B),
+                          size: 16,
+                        ),
                       ],
                     ),
                   ),
@@ -1680,7 +1715,11 @@ Future<void> _loadData() async {
                             color: const Color(0xFF10B981).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Icons.add_circle_rounded, color: Color(0xFF10B981), size: 24),
+                          child: const Icon(
+                            Icons.add_circle_rounded,
+                            color: Color(0xFF10B981),
+                            size: 24,
+                          ),
                         ),
                         const SizedBox(width: 16),
                         const Expanded(
@@ -1707,7 +1746,11 @@ Future<void> _loadData() async {
                             ],
                           ),
                         ),
-                        const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF64748B), size: 16),
+                        const Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          color: Color(0xFF64748B),
+                          size: 16,
+                        ),
                       ],
                     ),
                   ),
@@ -1723,9 +1766,14 @@ Future<void> _loadData() async {
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       side: const BorderSide(color: Color(0xFFE2E8F0)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                    child: const Text('Batal', style: TextStyle(color: Color(0xFF64748B))),
+                    child: const Text(
+                      'Batal',
+                      style: TextStyle(color: Color(0xFF64748B)),
+                    ),
                   ),
                 ),
               ],
@@ -1742,7 +1790,9 @@ Future<void> _loadData() async {
       context: context,
       builder: (BuildContext context) {
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: Container(
             constraints: const BoxConstraints(maxWidth: 600, maxHeight: 500),
             padding: const EdgeInsets.all(24),
@@ -1759,7 +1809,11 @@ Future<void> _loadData() async {
                         color: const Color(0xFF3B82F6).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.info_rounded, color: Color(0xFF3B82F6), size: 24),
+                      child: const Icon(
+                        Icons.info_rounded,
+                        color: Color(0xFF3B82F6),
+                        size: 24,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     const Expanded(
@@ -1902,16 +1956,20 @@ Future<void> _loadData() async {
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                                  border: Border.all(
+                                    color: const Color(0xFFE2E8F0),
+                                  ),
                                 ),
                                 child: Row(
                                   children: [
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            item['nama_warga']?.toString() ?? 'N/A',
+                                            item['nama_warga']?.toString() ??
+                                                'N/A',
                                             style: const TextStyle(
                                               fontWeight: FontWeight.w600,
                                               color: Color(0xFF1A202C),
@@ -1929,16 +1987,24 @@ Future<void> _loadData() async {
                                       ),
                                     ),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
                                       decoration: BoxDecoration(
-                                        color: _getStatusColor(item['status']?.toString()).withOpacity(0.1),
+                                        color: _getStatusColor(
+                                          item['status']?.toString(),
+                                        ).withOpacity(0.1),
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: Text(
-                                        item['status']?.toString() ?? 'Belum Lunas',
+                                        item['status']?.toString() ??
+                                            'Belum Lunas',
                                         style: TextStyle(
                                           fontSize: 12,
-                                          color: _getStatusColor(item['status']?.toString()),
+                                          color: _getStatusColor(
+                                            item['status']?.toString(),
+                                          ),
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
@@ -1966,7 +2032,9 @@ Future<void> _loadData() async {
       context: context,
       builder: (BuildContext context) {
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: Container(
             constraints: const BoxConstraints(maxWidth: 600, maxHeight: 600),
             padding: const EdgeInsets.all(24),
@@ -1983,7 +2051,11 @@ Future<void> _loadData() async {
                         color: Color.fromRGBO(245, 158, 11, 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.edit_rounded, color: Color(0xFFF59E0B), size: 24),
+                      child: const Icon(
+                        Icons.edit_rounded,
+                        color: Color(0xFFF59E0B),
+                        size: 24,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     const Expanded(
@@ -2058,7 +2130,9 @@ Future<void> _loadData() async {
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                                  border: Border.all(
+                                    color: const Color(0xFFE2E8F0),
+                                  ),
                                   boxShadow: [
                                     BoxShadow(
                                       color: Color.fromRGBO(0, 0, 0, 0.04),
@@ -2071,10 +2145,12 @@ Future<void> _loadData() async {
                                   children: [
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            item['nama_warga']?.toString() ?? 'N/A',
+                                            item['nama_warga']?.toString() ??
+                                                'N/A',
                                             style: const TextStyle(
                                               fontWeight: FontWeight.w600,
                                               color: Color(0xFF1A202C),
@@ -2115,9 +2191,13 @@ Future<void> _loadData() async {
                                         IconButton(
                                           onPressed: () {
                                             Navigator.of(context).pop();
-                                            _showDeleteDialog(item['id']?.toString() ?? '');
+                                            _showDeleteDialog(
+                                              item['id']?.toString() ?? '',
+                                            );
                                           },
-                                          icon: const Icon(Icons.delete_rounded),
+                                          icon: const Icon(
+                                            Icons.delete_rounded,
+                                          ),
                                           color: const Color(0xFFDC2626),
                                           iconSize: 20,
                                           tooltip: 'Hapus',
@@ -2182,7 +2262,11 @@ Future<void> _loadData() async {
                           color: const Color(0xFF10B981).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(Icons.add_circle_rounded, color: Color(0xFF10B981), size: 24),
+                        child: const Icon(
+                          Icons.add_circle_rounded,
+                          color: Color(0xFF10B981),
+                          size: 24,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       const Expanded(
@@ -2203,7 +2287,9 @@ Future<void> _loadData() async {
                     decoration: InputDecoration(
                       labelText: 'Judul Iuran',
                       hintText: 'Masukkan judul iuran',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
                     ),
@@ -2214,7 +2300,9 @@ Future<void> _loadData() async {
                     decoration: InputDecoration(
                       labelText: 'Jenis Iuran',
                       hintText: 'Masukkan jenis iuran',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
                     ),
@@ -2227,7 +2315,9 @@ Future<void> _loadData() async {
                     decoration: InputDecoration(
                       labelText: 'Jumlah (Rp)',
                       hintText: 'Masukkan jumlah iuran',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
                       prefixText: 'Rp ',
@@ -2241,7 +2331,9 @@ Future<void> _loadData() async {
                           value: selectedBulan,
                           decoration: InputDecoration(
                             labelText: 'Bulan',
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                             filled: true,
                             fillColor: const Color(0xFFF8FAFC),
                           ),
@@ -2252,7 +2344,8 @@ Future<void> _loadData() async {
                             );
                           }),
                           onChanged: (value) {
-                            if (value != null) setDialogState(() => selectedBulan = value);
+                            if (value != null)
+                              setDialogState(() => selectedBulan = value);
                           },
                         ),
                       ),
@@ -2262,7 +2355,9 @@ Future<void> _loadData() async {
                           value: selectedTahun,
                           decoration: InputDecoration(
                             labelText: 'Tahun',
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                             filled: true,
                             fillColor: const Color(0xFFF8FAFC),
                           ),
@@ -2274,7 +2369,8 @@ Future<void> _loadData() async {
                             );
                           }),
                           onChanged: (value) {
-                            if (value != null) setDialogState(() => selectedTahun = value);
+                            if (value != null)
+                              setDialogState(() => selectedTahun = value);
                           },
                         ),
                       ),
@@ -2296,13 +2392,21 @@ Future<void> _loadData() async {
                     child: InputDecorator(
                       decoration: InputDecoration(
                         labelText: 'Jatuh Tempo',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         filled: true,
                         fillColor: const Color(0xFFF8FAFC),
-                        suffixIcon: const Icon(Icons.calendar_today_rounded, color: Color(0xFF64748B)),
+                        suffixIcon: const Icon(
+                          Icons.calendar_today_rounded,
+                          color: Color(0xFF64748B),
+                        ),
                       ),
                       child: Text(
-                        DateFormat('dd MMMM yyyy', 'id_ID').format(selectedJatuhTempo),
+                        DateFormat(
+                          'dd MMMM yyyy',
+                          'id_ID',
+                        ).format(selectedJatuhTempo),
                         style: const TextStyle(fontSize: 16),
                       ),
                     ),
@@ -2316,7 +2420,9 @@ Future<void> _loadData() async {
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             side: const BorderSide(color: Color(0xFFE2E8F0)),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                           child: const Text('Batal'),
                         ),
@@ -2328,13 +2434,19 @@ Future<void> _loadData() async {
                             if (judulController.text.isEmpty ||
                                 jenisController.text.isEmpty ||
                                 jumlahController.text.isEmpty) {
-                              _showSnackBar('Semua field harus diisi', isError: true);
+                              _showSnackBar(
+                                'Semua field harus diisi',
+                                isError: true,
+                              );
                               return;
                             }
 
                             final userData = await _apiService.getUserData();
                             if (userData == null) {
-                              _showSnackBar('Gagal mendapatkan data user', isError: true);
+                              _showSnackBar(
+                                'Gagal mendapatkan data user',
+                                isError: true,
+                              );
                               return;
                             }
 
@@ -2344,7 +2456,8 @@ Future<void> _loadData() async {
                               'jumlah': int.parse(jumlahController.text),
                               'periode_bulan': selectedBulan,
                               'periode_tahun': selectedTahun,
-                              'jatuh_tempo': selectedJatuhTempo.toIso8601String(),
+                              'jatuh_tempo': selectedJatuhTempo
+                                  .toIso8601String(),
                             };
 
                             final requestBody = {
@@ -2360,14 +2473,23 @@ Future<void> _loadData() async {
                             };
 
                             try {
-                              final result = await _apiService.createMassIuran(requestBody);
+                              final result = await _apiService.createMassIuran(
+                                requestBody,
+                              );
                               Navigator.pop(ctx);
 
                               if (result['success']) {
-                                _showSnackBar('Mass iuran berhasil dibuat untuk semua warga', isError: false);
+                                _showSnackBar(
+                                  'Mass iuran berhasil dibuat untuk semua warga',
+                                  isError: false,
+                                );
                                 _loadData();
                               } else {
-                                _showSnackBar(result['message'] ?? 'Gagal membuat mass iuran', isError: true);
+                                _showSnackBar(
+                                  result['message'] ??
+                                      'Gagal membuat mass iuran',
+                                  isError: true,
+                                );
                               }
                             } catch (e) {
                               Navigator.pop(ctx);
@@ -2378,7 +2500,9 @@ Future<void> _loadData() async {
                             backgroundColor: const Color(0xFF10B981),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                           child: const Text('Buat Mass Iuran'),
                         ),

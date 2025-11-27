@@ -19,13 +19,6 @@ class _LaporanPageState extends State<LaporanPage> {
   String _searchQuery = '';
 
   final List<String> _filterOptions = ['Semua', 'Pending', 'Proses', 'Selesai'];
-  final List<String> _kategoriOptions = [
-    'Infrastruktur',
-    'Kebersihan',
-    'Keamanan',
-    'Sosial',
-    'Lainnya'
-  ];
 
   @override
   void initState() {
@@ -49,14 +42,25 @@ class _LaporanPageState extends State<LaporanPage> {
     }
   }
 
-  Future<void> _updateStatusLaporan(String id, String status, String tanggapan) async {
+  Future<void> _updateStatusLaporan(
+    String id,
+    String status,
+    String tanggapan,
+  ) async {
     try {
-      final result = await _apiService.updateStatusLaporan(id, status, tanggapan);
+      final result = await _apiService.updateStatusLaporan(
+        id,
+        status,
+        tanggapan,
+      );
       if (result['success']) {
         _showSnackBar('Status laporan berhasil diupdate', isError: false);
         _loadLaporan();
       } else {
-        _showSnackBar(result['message'] ?? 'Gagal update status', isError: true);
+        _showSnackBar(
+          result['message'] ?? 'Gagal update status',
+          isError: true,
+        );
       }
     } catch (e) {
       _showSnackBar('Error: $e', isError: true);
@@ -81,7 +85,9 @@ class _LaporanPageState extends State<LaporanPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isError ? const Color(0xFFDC2626) : const Color(0xFF10B981),
+        backgroundColor: isError
+            ? const Color(0xFFDC2626)
+            : const Color(0xFF10B981),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
@@ -104,7 +110,9 @@ class _LaporanPageState extends State<LaporanPage> {
         final kategori = item['kategori']?.toString().toLowerCase() ?? '';
         final pelapor = item['nama_pelapor']?.toString().toLowerCase() ?? '';
         final query = _searchQuery.toLowerCase();
-        return judul.contains(query) || kategori.contains(query) || pelapor.contains(query);
+        return judul.contains(query) ||
+            kategori.contains(query) ||
+            pelapor.contains(query);
       }).toList();
     }
 
@@ -118,26 +126,6 @@ class _LaporanPageState extends State<LaporanPage> {
       counts[status] = (counts[status] ?? 0) + 1;
     }
     return counts;
-  }
-
-  @override
-  Widget _buildStatusChip(String label, String selected, Color color, Function(String) onSelect) {
-    final isSelected = selected == label;
-    return FilterChip(
-      label: Text(label),
-      selected: isSelected,
-      onSelected: (bool selected) {
-        if (selected) onSelect(label);
-      },
-      selectedColor: color.withOpacity(0.2),
-      checkmarkColor: color,
-      backgroundColor: Colors.white,
-      side: BorderSide(color: isSelected ? color : const Color(0xFFE2E8F0)),
-      labelStyle: TextStyle(
-        color: isSelected ? color : const Color(0xFF64748B),
-        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-      ),
-    );
   }
 
   void _showDeleteDialog(String id) {
@@ -157,7 +145,9 @@ class _LaporanPageState extends State<LaporanPage> {
               Navigator.pop(ctx);
               _deleteLaporan(id);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+            ),
             child: const Text('Hapus'),
           ),
         ],
@@ -180,7 +170,8 @@ class _LaporanPageState extends State<LaporanPage> {
       child: Row(
         children: [
           IconButton(
-            onPressed: widget.onBackPressed ?? () => Navigator.of(context).pop(),
+            onPressed:
+                widget.onBackPressed ?? () => Navigator.of(context).pop(),
             icon: const Icon(Icons.arrow_back_rounded),
             style: IconButton.styleFrom(
               backgroundColor: Colors.white,
@@ -242,7 +233,11 @@ class _LaporanPageState extends State<LaporanPage> {
               ),
             ],
           ),
-          child: const Icon(Icons.report_rounded, color: Colors.white, size: 24),
+          child: const Icon(
+            Icons.report_rounded,
+            color: Colors.white,
+            size: 24,
+          ),
         ),
         const SizedBox(width: 16),
         Expanded(
@@ -379,9 +374,15 @@ class _LaporanPageState extends State<LaporanPage> {
               decoration: const InputDecoration(
                 hintText: 'Cari laporan...',
                 hintStyle: TextStyle(color: Color(0xFF94A3B8)),
-                prefixIcon: Icon(Icons.search_rounded, color: Color(0xFF64748B)),
+                prefixIcon: Icon(
+                  Icons.search_rounded,
+                  color: Color(0xFF64748B),
+                ),
                 border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 16,
+                ),
               ),
             ),
           ),
@@ -404,14 +405,14 @@ class _LaporanPageState extends State<LaporanPage> {
           child: DropdownButton<String>(
             value: _selectedFilter,
             underline: const SizedBox(),
-            icon: const Icon(Icons.filter_list_rounded, color: Color(0xFF64748B)),
+            icon: const Icon(
+              Icons.filter_list_rounded,
+              color: Color(0xFF64748B),
+            ),
             padding: const EdgeInsets.symmetric(horizontal: 16),
             borderRadius: BorderRadius.circular(14),
             items: _filterOptions.map((String value) {
-              return DropdownMenuItem<String>(
-                value: value,
-                child: Text(value),
-              );
+              return DropdownMenuItem<String>(value: value, child: Text(value));
             }).toList(),
             onChanged: (String? newValue) {
               if (newValue != null) {
@@ -437,7 +438,10 @@ class _LaporanPageState extends State<LaporanPage> {
           const SizedBox(height: 16),
           const Text(
             'Memuat data...',
-            style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+            style: TextStyle(
+              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),
@@ -547,7 +551,10 @@ class _LaporanPageState extends State<LaporanPage> {
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: statusColor.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
@@ -570,7 +577,10 @@ class _LaporanPageState extends State<LaporanPage> {
                       ),
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: kategoriColor.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
@@ -593,8 +603,13 @@ class _LaporanPageState extends State<LaporanPage> {
                       ),
                       const Spacer(),
                       PopupMenuButton<String>(
-                        icon: const Icon(Icons.more_vert_rounded, color: Color(0xFF64748B)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        icon: const Icon(
+                          Icons.more_vert_rounded,
+                          color: Color(0xFF64748B),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         itemBuilder: (context) => [
                           const PopupMenuItem(
                             value: 'detail',
@@ -620,9 +635,16 @@ class _LaporanPageState extends State<LaporanPage> {
                             value: 'delete',
                             child: Row(
                               children: [
-                                Icon(Icons.delete_rounded, size: 18, color: Color(0xFFDC2626)),
+                                Icon(
+                                  Icons.delete_rounded,
+                                  size: 18,
+                                  color: Color(0xFFDC2626),
+                                ),
                                 SizedBox(width: 8),
-                                Text('Hapus', style: TextStyle(color: Color(0xFFDC2626))),
+                                Text(
+                                  'Hapus',
+                                  style: TextStyle(color: Color(0xFFDC2626)),
+                                ),
                               ],
                             ),
                           ),
@@ -664,7 +686,11 @@ class _LaporanPageState extends State<LaporanPage> {
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      Icon(Icons.person_rounded, size: 14, color: const Color(0xFF94A3B8)),
+                      Icon(
+                        Icons.person_rounded,
+                        size: 14,
+                        color: const Color(0xFF94A3B8),
+                      ),
                       const SizedBox(width: 6),
                       Text(
                         pelapor,
@@ -675,7 +701,11 @@ class _LaporanPageState extends State<LaporanPage> {
                         ),
                       ),
                       const SizedBox(width: 16),
-                      Icon(Icons.location_on_rounded, size: 14, color: const Color(0xFF94A3B8)),
+                      Icon(
+                        Icons.location_on_rounded,
+                        size: 14,
+                        color: const Color(0xFF94A3B8),
+                      ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
@@ -694,7 +724,11 @@ class _LaporanPageState extends State<LaporanPage> {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Icon(Icons.calendar_today_rounded, size: 14, color: const Color(0xFF94A3B8)),
+                      Icon(
+                        Icons.calendar_today_rounded,
+                        size: 14,
+                        color: const Color(0xFF94A3B8),
+                      ),
                       const SizedBox(width: 6),
                       Text(
                         _formatDate(tanggal),
@@ -744,13 +778,10 @@ class _LaporanPageState extends State<LaporanPage> {
           ),
           const SizedBox(height: 8),
           Text(
-            _selectedFilter != 'Semua' 
+            _selectedFilter != 'Semua'
                 ? 'Tidak ada laporan dengan status $_selectedFilter'
                 : 'Belum ada laporan dari warga',
-            style: const TextStyle(
-              fontSize: 14,
-              color: Color(0xFF64748B),
-            ),
+            style: const TextStyle(fontSize: 14, color: Color(0xFF64748B)),
           ),
         ],
       ),
@@ -777,7 +808,11 @@ class _LaporanPageState extends State<LaporanPage> {
                       color: const Color(0xFFDC2626).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.report_rounded, color: Color(0xFFDC2626), size: 24),
+                    child: const Icon(
+                      Icons.report_rounded,
+                      color: Color(0xFFDC2626),
+                      size: 24,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   const Expanded(
@@ -802,15 +837,42 @@ class _LaporanPageState extends State<LaporanPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildDetailItem('Judul', item['judul']?.toString() ?? '-'),
-                      _buildDetailItem('Kategori', item['kategori']?.toString() ?? '-'),
-                      _buildDetailItem('Status', item['status']?.toString() ?? '-'),
-                      _buildDetailItem('Pelapor', item['nama_pelapor']?.toString() ?? '-'),
-                      _buildDetailItem('Lokasi', item['lokasi']?.toString() ?? '-'),
-                      _buildDetailItem('Tanggal', _formatDate(item['tanggal']?.toString() ?? '')),
-                      _buildDetailItem('Deskripsi', item['deskripsi']?.toString() ?? '-', isLong: true),
-                      if (item['tanggapan'] != null && item['tanggapan'].toString().isNotEmpty)
-                        _buildDetailItem('Tanggapan', item['tanggapan']?.toString() ?? '-', isLong: true),
+                      _buildDetailItem(
+                        'Judul',
+                        item['judul']?.toString() ?? '-',
+                      ),
+                      _buildDetailItem(
+                        'Kategori',
+                        item['kategori']?.toString() ?? '-',
+                      ),
+                      _buildDetailItem(
+                        'Status',
+                        item['status']?.toString() ?? '-',
+                      ),
+                      _buildDetailItem(
+                        'Pelapor',
+                        item['nama_pelapor']?.toString() ?? '-',
+                      ),
+                      _buildDetailItem(
+                        'Lokasi',
+                        item['lokasi']?.toString() ?? '-',
+                      ),
+                      _buildDetailItem(
+                        'Tanggal',
+                        _formatDate(item['tanggal']?.toString() ?? ''),
+                      ),
+                      _buildDetailItem(
+                        'Deskripsi',
+                        item['deskripsi']?.toString() ?? '-',
+                        isLong: true,
+                      ),
+                      if (item['tanggapan'] != null &&
+                          item['tanggapan'].toString().isNotEmpty)
+                        _buildDetailItem(
+                          'Tanggapan',
+                          item['tanggapan']?.toString() ?? '-',
+                          isLong: true,
+                        ),
                     ],
                   ),
                 ),
@@ -853,7 +915,9 @@ class _LaporanPageState extends State<LaporanPage> {
 
   void _showUpdateStatusDialog(Map<String, dynamic> item) {
     String selectedStatus = item['status']?.toString() ?? 'Pending';
-    final tanggapanController = TextEditingController(text: item['tanggapan']?.toString() ?? '');
+    final tanggapanController = TextEditingController(
+      text: item['tanggapan']?.toString() ?? '',
+    );
 
     showDialog(
       context: context,
@@ -875,7 +939,11 @@ class _LaporanPageState extends State<LaporanPage> {
                         color: const Color(0xFF3B82F6).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.edit_rounded, color: Color(0xFF3B82F6), size: 24),
+                      child: const Icon(
+                        Icons.edit_rounded,
+                        color: Color(0xFF3B82F6),
+                        size: 24,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     const Text(
@@ -901,15 +969,78 @@ class _LaporanPageState extends State<LaporanPage> {
                 Wrap(
                   spacing: 12,
                   children: [
-                    _buildStatusChip('Pending', selectedStatus, const Color(0xFFF59E0B), (value) {
-                      setDialogState(() => selectedStatus = value);
-                    }),
-                    _buildStatusChip('Proses', selectedStatus, const Color(0xFF3B82F6), (value) {
-                      setDialogState(() => selectedStatus = value);
-                    }),
-                    _buildStatusChip('Selesai', selectedStatus, const Color(0xFF10B981), (value) {
-                      setDialogState(() => selectedStatus = value);
-                    }),
+                    FilterChip(
+                      label: const Text('Pending'),
+                      selected: selectedStatus == 'Pending',
+                      onSelected: (bool selected) {
+                        if (selected)
+                          setDialogState(() => selectedStatus = 'Pending');
+                      },
+                      selectedColor: const Color(0xFFF59E0B).withOpacity(0.2),
+                      checkmarkColor: const Color(0xFFF59E0B),
+                      backgroundColor: Colors.white,
+                      side: BorderSide(
+                        color: selectedStatus == 'Pending'
+                            ? const Color(0xFFF59E0B)
+                            : const Color(0xFFE2E8F0),
+                      ),
+                      labelStyle: TextStyle(
+                        color: selectedStatus == 'Pending'
+                            ? const Color(0xFFF59E0B)
+                            : const Color(0xFF64748B),
+                        fontWeight: selectedStatus == 'Pending'
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
+                    ),
+                    FilterChip(
+                      label: const Text('Proses'),
+                      selected: selectedStatus == 'Proses',
+                      onSelected: (bool selected) {
+                        if (selected)
+                          setDialogState(() => selectedStatus = 'Proses');
+                      },
+                      selectedColor: const Color(0xFF3B82F6).withOpacity(0.2),
+                      checkmarkColor: const Color(0xFF3B82F6),
+                      backgroundColor: Colors.white,
+                      side: BorderSide(
+                        color: selectedStatus == 'Proses'
+                            ? const Color(0xFF3B82F6)
+                            : const Color(0xFFE2E8F0),
+                      ),
+                      labelStyle: TextStyle(
+                        color: selectedStatus == 'Proses'
+                            ? const Color(0xFF3B82F6)
+                            : const Color(0xFF64748B),
+                        fontWeight: selectedStatus == 'Proses'
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
+                    ),
+                    FilterChip(
+                      label: const Text('Selesai'),
+                      selected: selectedStatus == 'Selesai',
+                      onSelected: (bool selected) {
+                        if (selected)
+                          setDialogState(() => selectedStatus = 'Selesai');
+                      },
+                      selectedColor: const Color(0xFF10B981).withOpacity(0.2),
+                      checkmarkColor: const Color(0xFF10B981),
+                      backgroundColor: Colors.white,
+                      side: BorderSide(
+                        color: selectedStatus == 'Selesai'
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFFE2E8F0),
+                      ),
+                      labelStyle: TextStyle(
+                        color: selectedStatus == 'Selesai'
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFF64748B),
+                        fontWeight: selectedStatus == 'Selesai'
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -919,7 +1050,9 @@ class _LaporanPageState extends State<LaporanPage> {
                   decoration: InputDecoration(
                     labelText: 'Tanggapan/Keterangan',
                     hintText: 'Berikan tanggapan untuk laporan ini',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     filled: true,
                     fillColor: const Color(0xFFF8FAFC),
                   ),
@@ -933,7 +1066,9 @@ class _LaporanPageState extends State<LaporanPage> {
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           side: const BorderSide(color: Color(0xFFE2E8F0)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                         child: const Text('Batal'),
                       ),
@@ -952,7 +1087,9 @@ class _LaporanPageState extends State<LaporanPage> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF3B82F6),
                           padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                         child: const Text('Update'),
                       ),

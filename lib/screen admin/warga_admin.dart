@@ -3,7 +3,7 @@ import '../../services/api_service.dart';
 
 class WargaAdminPage extends StatefulWidget {
   final VoidCallback? onBackPressed;
-  
+
   const WargaAdminPage({super.key, this.onBackPressed});
 
   @override
@@ -77,24 +77,19 @@ class _WargaAdminPageState extends State<WargaAdminPage> {
       activeUsers = total;
     }
 
-    return {
-      'total': total,
-      'active': activeUsers,
-      'inactive': inactiveUsers,
-    };
+    return {'total': total, 'active': activeUsers, 'inactive': inactiveUsers};
   }
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 600;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildBackToDashboardButton(),
+        const SizedBox(height: 24),
         _buildHeader(),
         const SizedBox(height: 24),
-        _buildStatsCards(isMobile),
+        _buildStatsCards(),
         const SizedBox(height: 24),
         _buildSearchBar(),
         const SizedBox(height: 24),
@@ -106,43 +101,31 @@ class _WargaAdminPageState extends State<WargaAdminPage> {
   Widget _buildBackToDashboardButton() {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: InkWell(
-        onTap: widget.onBackPressed,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed:
+                widget.onBackPressed ?? () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.arrow_back_rounded),
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white,
+              padding: const EdgeInsets.all(12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: Color(0xFFE2E8F0)),
               ),
-            ],
+            ),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.arrow_back_rounded,
-                color: Color(0xFF64748B),
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                'Kembali ke Dashboard',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF64748B),
-                ),
-              ),
-            ],
+          const SizedBox(width: 12),
+          const Text(
+            'Kembali ke Dashboard',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF64748B),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -167,14 +150,18 @@ class _WargaAdminPageState extends State<WargaAdminPage> {
               ),
             ],
           ),
-          child: const Icon(Icons.people_rounded, color: Colors.white, size: 24),
+          child: const Icon(
+            Icons.people_rounded,
+            color: Colors.white,
+            size: 24,
+          ),
         ),
         const SizedBox(width: 16),
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              const Text(
                 'Database Warga',
                 style: TextStyle(
                   fontSize: 24,
@@ -183,10 +170,10 @@ class _WargaAdminPageState extends State<WargaAdminPage> {
                   letterSpacing: -0.5,
                 ),
               ),
-              SizedBox(height: 4),
+              const SizedBox(height: 4),
               Text(
-                'Kelola data dan informasi warga RT',
-                style: TextStyle(
+                '${_wargaList.length} total warga',
+                style: const TextStyle(
                   fontSize: 14,
                   color: Color(0xFF64748B),
                   fontWeight: FontWeight.w500,
@@ -199,81 +186,47 @@ class _WargaAdminPageState extends State<WargaAdminPage> {
     );
   }
 
-  Widget _buildStatsCards(bool isMobile) {
+  Widget _buildStatsCards() {
     final stats = _stats;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (isMobile) {
-          return Column(
-            children: [
-              _buildStatCard(
-                'Total Warga',
-                '${stats['total']}',
-                Icons.people_rounded,
-                const Color(0xFFEC4899),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildStatCard(
-                      'Warga Aktif',
-                      '${stats['active']}',
-                      Icons.check_circle_rounded,
-                      const Color(0xFF10B981),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildStatCard(
-                      'Tidak Aktif',
-                      '${stats['inactive']}',
-                      Icons.cancel_rounded,
-                      const Color(0xFFDC2626),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          );
-        }
-
-        return Row(
-          children: [
-            Expanded(
-              child: _buildStatCard(
-                'Total Warga',
-                '${stats['total']}',
-                Icons.people_rounded,
-                const Color(0xFFEC4899),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildStatCard(
-                'Warga Aktif',
-                '${stats['active']}',
-                Icons.check_circle_rounded,
-                const Color(0xFF10B981),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildStatCard(
-                'Tidak Aktif',
-                '${stats['inactive']}',
-                Icons.cancel_rounded,
-                const Color(0xFFDC2626),
-              ),
-            ),
-          ],
-        );
-      },
+    return Row(
+      children: [
+        Expanded(
+          child: _buildStatCard(
+            'Total Warga',
+            '${stats['total']}',
+            Icons.people_rounded,
+            const Color(0xFFEC4899),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatCard(
+            'Warga Aktif',
+            '${stats['active']}',
+            Icons.check_circle_rounded,
+            const Color(0xFF10B981),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatCard(
+            'Tidak Aktif',
+            '${stats['inactive']}',
+            Icons.cancel_rounded,
+            const Color(0xFFDC2626),
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -367,7 +320,10 @@ class _WargaAdminPageState extends State<WargaAdminPage> {
           const SizedBox(height: 16),
           const Text(
             'Memuat data warga...',
-            style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+            style: TextStyle(
+              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),
@@ -401,7 +357,9 @@ class _WargaAdminPageState extends State<WargaAdminPage> {
     final status = warga['status'] ?? 'active';
 
     final isActive = status == 'active';
-    final statusColor = isActive ? const Color(0xFF10B981) : const Color(0xFFDC2626);
+    final statusColor = isActive
+        ? const Color(0xFF10B981)
+        : const Color(0xFFDC2626);
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
@@ -462,7 +420,10 @@ class _WargaAdminPageState extends State<WargaAdminPage> {
                     ),
                     const SizedBox(height: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: statusColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(6),
@@ -479,7 +440,11 @@ class _WargaAdminPageState extends State<WargaAdminPage> {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        const Icon(Icons.email_outlined, size: 14, color: Color(0xFF94A3B8)),
+                        const Icon(
+                          Icons.email_outlined,
+                          size: 14,
+                          color: Color(0xFF94A3B8),
+                        ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
@@ -499,7 +464,11 @@ class _WargaAdminPageState extends State<WargaAdminPage> {
                     if (noHp != '-') ...[
                       Row(
                         children: [
-                          const Icon(Icons.phone_outlined, size: 14, color: Color(0xFF94A3B8)),
+                          const Icon(
+                            Icons.phone_outlined,
+                            size: 14,
+                            color: Color(0xFF94A3B8),
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             noHp,
@@ -515,7 +484,11 @@ class _WargaAdminPageState extends State<WargaAdminPage> {
                     ],
                     Row(
                       children: [
-                        const Icon(Icons.location_on_outlined, size: 14, color: Color(0xFF94A3B8)),
+                        const Icon(
+                          Icons.location_on_outlined,
+                          size: 14,
+                          color: Color(0xFF94A3B8),
+                        ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
@@ -577,10 +550,7 @@ class _WargaAdminPageState extends State<WargaAdminPage> {
           const SizedBox(height: 8),
           const Text(
             'Data warga belum tersedia',
-            style: TextStyle(
-              fontSize: 14,
-              color: Color(0xFF64748B),
-            ),
+            style: TextStyle(fontSize: 14, color: Color(0xFF64748B)),
           ),
         ],
       ),
@@ -650,17 +620,26 @@ class _WargaAdminPageState extends State<WargaAdminPage> {
                       ),
                       const SizedBox(height: 20),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
-                          color: status == 'active' ? const Color(0xFFD1FAE5) : const Color(0xFFFEE2E2),
+                          color: status == 'active'
+                              ? const Color(0xFFD1FAE5)
+                              : const Color(0xFFFEE2E2),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          status == 'active' ? 'Warga Aktif' : 'Warga Tidak Aktif',
+                          status == 'active'
+                              ? 'Warga Aktif'
+                              : 'Warga Tidak Aktif',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: status == 'active' ? const Color(0xFF10B981) : const Color(0xFFDC2626),
+                            color: status == 'active'
+                                ? const Color(0xFF10B981)
+                                : const Color(0xFFDC2626),
                           ),
                         ),
                       ),
@@ -683,18 +662,31 @@ class _WargaAdminPageState extends State<WargaAdminPage> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      if (nik != '-') _buildInfoRow(Icons.credit_card_rounded, 'NIK', nik),
+                      if (nik != '-')
+                        _buildInfoRow(Icons.credit_card_rounded, 'NIK', nik),
                       if (tanggalLahir != '-') ...[
                         const SizedBox(height: 12),
-                        _buildInfoRow(Icons.calendar_today_rounded, 'Tanggal Lahir', tanggalLahir),
+                        _buildInfoRow(
+                          Icons.calendar_today_rounded,
+                          'Tanggal Lahir',
+                          tanggalLahir,
+                        ),
                       ],
                       if (jenisKelamin != '-') ...[
                         const SizedBox(height: 12),
-                        _buildInfoRow(Icons.wc_rounded, 'Jenis Kelamin', jenisKelamin),
+                        _buildInfoRow(
+                          Icons.wc_rounded,
+                          'Jenis Kelamin',
+                          jenisKelamin,
+                        ),
                       ],
                       if (pekerjaan != '-') ...[
                         const SizedBox(height: 12),
-                        _buildInfoRow(Icons.work_rounded, 'Pekerjaan', pekerjaan),
+                        _buildInfoRow(
+                          Icons.work_rounded,
+                          'Pekerjaan',
+                          pekerjaan,
+                        ),
                       ],
                       const SizedBox(height: 24),
                       const Text(
@@ -713,7 +705,11 @@ class _WargaAdminPageState extends State<WargaAdminPage> {
                       ],
                       if (alamat != 'Tidak ada alamat') ...[
                         const SizedBox(height: 12),
-                        _buildInfoRow(Icons.location_on_rounded, 'Alamat', alamat),
+                        _buildInfoRow(
+                          Icons.location_on_rounded,
+                          'Alamat',
+                          alamat,
+                        ),
                       ],
                       const SizedBox(height: 32),
                       Row(
@@ -733,7 +729,9 @@ class _WargaAdminPageState extends State<WargaAdminPage> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF3B82F6),
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(14),
                                 ),
@@ -756,7 +754,9 @@ class _WargaAdminPageState extends State<WargaAdminPage> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF10B981),
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(14),
                                 ),

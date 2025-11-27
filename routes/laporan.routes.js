@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const LaporanWarga = require('../models/LaporanWarga');
+const User = require('../models/User');
 
 // === CREATE (Membuat Laporan Baru) ===
 // POST /api/laporan
@@ -13,8 +14,8 @@ router.post('/', async (req, res) => {
             pelapor_id,
             judul_laporan,
             isi_laporan,
-            foto_laporan // (Ini akan jadi URL foto)
-            // status_laporan akan otomatis 'Diterima'
+            foto_laporan, // (Ini akan jadi URL foto)
+            status_laporan: 'Diterima' // Explicitly set status
         });
 
         const savedLaporan = await laporanBaru.save();

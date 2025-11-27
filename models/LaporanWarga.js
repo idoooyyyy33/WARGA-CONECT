@@ -19,11 +19,24 @@ const LaporanWargaSchema = new Schema({
         type: String, // Kita akan simpan URL fotonya di sini
         required: false // Tidak semua laporan wajib ada foto
     },
+    kategori_laporan: {
+        type: String,
+        required: false,
+        default: 'Lainnya'
+    },
+    lokasi: {
+        type: String,
+        required: false
+    },
+    tanggapan: {
+        type: String,
+        required: false
+    },
     status_laporan: {
         type: String,
         required: true,
         // enum: memastikan nilainya hanya salah satu dari ini
-        enum: ['Diterima', 'Diproses', 'Selesai', 'Ditolak'], 
+        enum: ['Diterima', 'Diproses', 'Selesai', 'Ditolak'],
         default: 'Diterima' // Status default saat pertama kali dibuat
     },
     createdAt: {
