@@ -53,10 +53,10 @@ mongoose.connect(dbURI, {
   console.log("✅ Berhasil terhubung ke MongoDB");
 
   // 6. Jalankan server HANYA JIKA koneksi DB berhasil
-  app.listen(PORT, '192.168.1.5', () => {
-    console.log(`🚀 Server berjalan di http://192.168.1.5:${PORT}`);
+  app.listen(PORT, '172.168.47.124', () => {
+    console.log(`🚀 Server berjalan di http://172.168.47.124:${PORT}`);
     console.log(`🚀 Akses juga via http://localhost:${PORT}`);
-    console.log(`🚀 API base URL: http://192.168.1.5:${PORT}/api`);
+    console.log(`🚀 API base URL: http://172.168.47.124:${PORT}/api`);
   });
 })
 .catch((err) => {

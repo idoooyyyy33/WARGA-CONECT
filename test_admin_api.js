@@ -6,7 +6,7 @@ console.log('Testing admin stats API...');
 
 // Test admin stats endpoint
 const options = {
-  hostname: '192.168.1.5',
+  hostname: '172.168.47.124',
   port: 3000,
   path: '/api/admin/stats',
   method: 'GET',

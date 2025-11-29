@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 
 class ApiService {
   // --- PERHATIAN: Menggunakan IP untuk akses otomatis ---
-  static const String baseUrl = 'http://192.168.1.5:3000/api';
+  static const String baseUrl = 'http://172.168.47.124:3000/api';
 
   // Helper untuk handle response
   Map<String, dynamic> _handleResponse(http.Response response) {

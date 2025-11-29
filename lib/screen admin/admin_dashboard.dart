@@ -9,13 +9,8 @@ import 'kegiatan.dart';
 import 'umkm_admin.dart';
 import 'warga_admin.dart';
 import 'surat_pengantar_admin.dart';
-import '../screen user/announcements_screen.dart';
-import '../screen user/activities_screen.dart';
-import '../screen user/umkm_screen.dart';
-import '../screen user/reports_screen.dart';
-import '../screen user/dashboard_screen.dart';
-import '../screen user/payments_screen.dart';
 import 'dart:math' show cos, sin;
+import 'dart:async';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -24,8 +19,7 @@ class AdminDashboard extends StatefulWidget {
   State<AdminDashboard> createState() => _AdminDashboardState();
 }
 
-class _AdminDashboardState extends State<AdminDashboard>
-    with TickerProviderStateMixin {
+class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStateMixin {
   int _selectedIndex = 0;
   late AnimationController _headerAnimController;
   late AnimationController _contentAnimController;
@@ -40,72 +34,23 @@ class _AdminDashboardState extends State<AdminDashboard>
   // --- AKHIR PERUBAHAN ---
 
   final List<Map<String, dynamic>> _menuItems = [
-    {
-      'title': 'Pengumuman',
-      'icon': Icons.campaign_rounded,
-      'color': const Color(0xFF10B981),
-      'desc': 'Kelola pengumuman',
-    },
-    {
-      'title': 'Laporan',
-      'icon': Icons.report_rounded,
-      'color': const Color(0xFFDC2626),
-      'desc': 'Lihat laporan warga',
-    },
-    {
-      'title': 'Iuran',
-      'icon': Icons.payment_rounded,
-      'color': const Color(0xFFF59E0B),
-      'desc': 'Manajemen pembayaran',
-    },
-    {
-      'title': 'Kegiatan',
-      'icon': Icons.event_rounded,
-      'color': const Color(0xFF8B5CF6),
-      'desc': 'Jadwal acara RT',
-    },
-    {
-      'title': 'UMKM',
-      'icon': Icons.store_rounded,
-      'color': const Color(0xFF06B6D4),
-      'desc': 'Data usaha warga',
-    },
-    {
-      'title': 'Warga',
-      'icon': Icons.people_rounded,
-      'color': const Color(0xFFEC4899),
-      'desc': 'Database warga',
-    },
-    {
-      'title': 'Surat Pengantar',
-      'icon': Icons.description_rounded,
-      'color': const Color(0xFFFB923C),
-      'desc': 'Kelola surat pengantar',
-    },
+    {'title': 'Pengumuman', 'icon': Icons.campaign_rounded, 'color': const Color(0xFF10B981), 'desc': 'Kelola pengumuman'},
+    {'title': 'Laporan', 'icon': Icons.report_rounded, 'color': const Color(0xFFDC2626), 'desc': 'Lihat laporan warga'},
+    {'title': 'Iuran', 'icon': Icons.payment_rounded, 'color': const Color(0xFFF59E0B), 'desc': 'Manajemen pembayaran'},
+    {'title': 'Kegiatan', 'icon': Icons.event_rounded, 'color': const Color(0xFF8B5CF6), 'desc': 'Jadwal acara RT'},
+    {'title': 'UMKM', 'icon': Icons.store_rounded, 'color': const Color(0xFF06B6D4), 'desc': 'Data usaha warga'},
+    {'title': 'Warga', 'icon': Icons.people_rounded, 'color': const Color(0xFFEC4899), 'desc': 'Database warga'},
+    {'title': 'Surat Pengantar', 'icon': Icons.description_rounded, 'color': const Color(0xFFFB923C), 'desc': 'Kelola surat pengantar'},
   ];
 
   @override
   void initState() {
     super.initState();
-    _headerAnimController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1000),
-    );
-    _contentAnimController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-    );
-    _headerFadeAnimation = CurvedAnimation(
-      parent: _headerAnimController,
-      curve: Curves.easeOut,
-    );
-    _headerSlideAnimation =
-        Tween<Offset>(begin: const Offset(0, -0.3), end: Offset.zero).animate(
-          CurvedAnimation(
-            parent: _headerAnimController,
-            curve: Curves.easeOutCubic,
-          ),
-        );
+    _headerAnimController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1000));
+    _contentAnimController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
+    _headerFadeAnimation = CurvedAnimation(parent: _headerAnimController, curve: Curves.easeOut);
+    _headerSlideAnimation = Tween<Offset>(begin: const Offset(0, -0.3), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _headerAnimController, curve: Curves.easeOutCubic));
     _headerAnimController.forward();
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) _contentAnimController.forward();
@@ -124,11 +69,11 @@ class _AdminDashboardState extends State<AdminDashboard>
     });
     try {
       final apiService = ApiService();
-
+      
       // Mengambil data stats dan aktivitas secara bersamaan
       final results = await Future.wait([
         apiService.getAdminStats(),
-        apiService.getAktivitasTerbaru(), // Memanggil fungsi baru
+        apiService.getAktivitasTerbaru() // Memanggil fungsi baru
       ]);
 
       final statsResult = results[0];
@@ -140,7 +85,7 @@ class _AdminDashboardState extends State<AdminDashboard>
           if (statsResult['success']) {
             _stats = statsResult['data'];
           }
-
+          
           // Update aktivitas
           if (aktivitasResult['success']) {
             _aktivitasList = aktivitasResult['data'];
@@ -185,24 +130,22 @@ class _AdminDashboardState extends State<AdminDashboard>
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
-              if (_selectedIndex == 0)
-                SliverToBoxAdapter(
-                  child: FadeTransition(
-                    opacity: _headerFadeAnimation,
-                    child: SlideTransition(
-                      position: _headerSlideAnimation,
-                      child: _buildModernHeader(context),
-                    ),
+               if (_selectedIndex == 0)
+              SliverToBoxAdapter(
+                child: FadeTransition(
+                  opacity: _headerFadeAnimation,
+                  child: SlideTransition(
+                    position: _headerSlideAnimation,
+                    child: _buildModernHeader(context),
                   ),
                 ),
+              ),
               SliverPadding(
                 padding: EdgeInsets.fromLTRB(
                   isMobile ? 12 : 24,
-                  _selectedIndex == 0
-                      ? (isMobile ? 12 : 24)
-                      : (isMobile ? 24 : 40),
                   isMobile ? 12 : 24,
-                  24,
+                  isMobile ? 12 : 24,
+                  24
                 ),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
@@ -244,15 +187,13 @@ class _AdminDashboardState extends State<AdminDashboard>
             color: Colors.black.withOpacity(0.1),
             blurRadius: 8,
             offset: const Offset(0, 4),
-          ),
+          )
         ],
       ),
       child: Stack(
         children: [
           Positioned.fill(child: CustomPaint(painter: ModernPatternPainter())),
-          Positioned.fill(
-            child: CustomPaint(painter: GeometricPatternPainter()),
-          ),
+          Positioned.fill(child: CustomPaint(painter: GeometricPatternPainter())),
           Padding(
             padding: EdgeInsets.all(isMobile ? 16 : 28),
             child: Column(
@@ -271,7 +212,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                           child: Container(
                             padding: EdgeInsets.symmetric(
                               horizontal: isMobile ? 12 : 18,
-                              vertical: isMobile ? 8 : 10,
+                              vertical: isMobile ? 8 : 10
                             ),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
@@ -281,10 +222,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                                 ],
                               ),
                               borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.3),
-                                width: 1.5,
-                              ),
+                              border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.5),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -298,7 +236,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                                   child: Icon(
                                     Icons.admin_panel_settings_rounded,
                                     color: Colors.white,
-                                    size: isMobile ? 14 : 16,
+                                    size: isMobile ? 14 : 16
                                   ),
                                 ),
                                 SizedBox(width: isMobile ? 6 : 10),
@@ -309,7 +247,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                                       color: Colors.white,
                                       fontSize: isMobile ? 12 : 14,
                                       fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.3,
+                                      letterSpacing: 0.3
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -325,8 +263,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                       tween: Tween(begin: 0.0, end: 1.0),
                       duration: const Duration(milliseconds: 900),
                       curve: Curves.easeOutBack,
-                      builder: (context, value, child) =>
-                          Transform.scale(scale: value, child: child),
+                      builder: (context, value, child) => Transform.scale(scale: value, child: child),
                       child: Material(
                         color: Colors.transparent,
                         child: InkWell(
@@ -337,15 +274,12 @@ class _AdminDashboardState extends State<AdminDashboard>
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(0.15),
                               borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.25),
-                                width: 1.5,
-                              ),
+                              border: Border.all(color: Colors.white.withOpacity(0.25), width: 1.5),
                             ),
                             child: Icon(
                               Icons.logout_rounded,
                               color: Colors.white,
-                              size: isMobile ? 18 : 20,
+                              size: isMobile ? 18 : 20
                             ),
                           ),
                         ),
@@ -360,10 +294,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                   curve: Curves.easeOut,
                   builder: (context, value, child) => Opacity(
                     opacity: value,
-                    child: Transform.translate(
-                      offset: Offset(0, 20 * (1 - value)),
-                      child: child,
-                    ),
+                    child: Transform.translate(offset: Offset(0, 20 * (1 - value)), child: child),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -374,7 +305,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                           fontSize: isMobile ? 13 : 15,
                           color: Colors.white.withOpacity(0.8),
                           fontWeight: FontWeight.w600,
-                          letterSpacing: 0.5,
+                          letterSpacing: 0.5
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -383,12 +314,10 @@ class _AdminDashboardState extends State<AdminDashboard>
                           String userName = 'Admin';
                           if (authProvider.userData != null) {
                             final data = authProvider.userData!;
-                            userName =
-                                data['nama_lengkap']?.toString() ??
-                                data['nama']?.toString() ??
-                                data['name']?.toString() ??
-                                data['username']?.toString() ??
-                                'Admin';
+                            userName = data['nama_lengkap']?.toString() ?? 
+                                      data['nama']?.toString() ?? 
+                                      data['name']?.toString() ?? 
+                                      data['username']?.toString() ?? 'Admin';
                           }
                           return Text(
                             userName,
@@ -397,7 +326,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                               color: Colors.white,
                               fontWeight: FontWeight.w900,
                               letterSpacing: -1,
-                              height: 1.1,
+                              height: 1.1
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -414,10 +343,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                   curve: Curves.easeOut,
                   builder: (context, value, child) => Opacity(
                     opacity: value,
-                    child: Transform.translate(
-                      offset: Offset(0, 20 * (1 - value)),
-                      child: child,
-                    ),
+                    child: Transform.translate(offset: Offset(0, 20 * (1 - value)), child: child)
                   ),
                   child: LayoutBuilder(
                     builder: (context, constraints) {
@@ -453,8 +379,8 @@ class _AdminDashboardState extends State<AdminDashboard>
                                 Expanded(
                                   child: _buildQuickStat(
                                     icon: Icons.report_rounded,
-                                    label: 'Laporan',
-                                    value: '${_stats?['totalLaporan'] ?? 0}',
+                                    label: 'Laporan Pending',
+                                    value: '${_stats?['totalLaporanPending'] ?? 0}',
                                     color: const Color(0xFFDC2626),
                                     isMobile: true,
                                   ),
@@ -525,13 +451,16 @@ class _AdminDashboardState extends State<AdminDashboard>
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.15), width: 1.5),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.15),
+          width: 1.5
+        ),
         boxShadow: [
           BoxShadow(
             color: color.withOpacity(0.1),
             blurRadius: 12,
             offset: const Offset(0, 4),
-          ),
+          )
         ],
       ),
       child: Column(
@@ -544,7 +473,10 @@ class _AdminDashboardState extends State<AdminDashboard>
                 padding: EdgeInsets.all(isMobile ? 8 : 10),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [color.withOpacity(0.3), color.withOpacity(0.15)],
+                    colors: [
+                      color.withOpacity(0.3),
+                      color.withOpacity(0.15),
+                    ],
                   ),
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
@@ -552,14 +484,10 @@ class _AdminDashboardState extends State<AdminDashboard>
                       color: color.withOpacity(0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
-                    ),
+                    )
                   ],
                 ),
-                child: Icon(
-                  icon,
-                  color: Colors.white,
-                  size: isMobile ? 18 : 20,
-                ),
+                child: Icon(icon, color: Colors.white, size: isMobile ? 18 : 20),
               ),
               const Spacer(),
               Container(
@@ -567,9 +495,16 @@ class _AdminDashboardState extends State<AdminDashboard>
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: color.withOpacity(0.3), width: 1),
+                  border: Border.all(
+                    color: color.withOpacity(0.3),
+                    width: 1,
+                  ),
                 ),
-                child: Icon(Icons.trending_up_rounded, color: color, size: 14),
+                child: Icon(
+                  Icons.trending_up_rounded,
+                  color: color,
+                  size: 14,
+                ),
               ),
             ],
           ),
@@ -613,7 +548,7 @@ class _AdminDashboardState extends State<AdminDashboard>
           _buildSectionHeader(
             icon: Icons.apps_rounded,
             title: 'Menu Utama',
-            subtitle: 'Akses cepat ke semua fitur',
+            subtitle: 'Akses cepat ke semua fitur'
           ),
           const SizedBox(height: 20),
           LayoutBuilder(
@@ -624,7 +559,7 @@ class _AdminDashboardState extends State<AdminDashboard>
               } else if (constraints.maxWidth >= 900) {
                 crossAxisCount = 3;
               }
-
+              
               return GridView.builder(
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: crossAxisCount,
@@ -651,7 +586,7 @@ class _AdminDashboardState extends State<AdminDashboard>
           _buildSectionHeader(
             icon: Icons.bar_chart_rounded,
             title: 'Statistik Detail',
-            subtitle: 'Ringkasan data terkini',
+            subtitle: 'Ringkasan data terkini'
           ),
           const SizedBox(height: 20),
           LayoutBuilder(
@@ -662,7 +597,7 @@ class _AdminDashboardState extends State<AdminDashboard>
               } else if (constraints.maxWidth >= 900) {
                 crossAxisCount = 3;
               }
-
+              
               return GridView.count(
                 crossAxisCount: crossAxisCount,
                 shrinkWrap: true,
@@ -677,7 +612,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                     value: '${_stats?['totalWarga'] ?? 0}',
                     subtitle: 'Terdaftar',
                     icon: Icons.people_rounded,
-                    color: const Color(0xFF3B82F6),
+                    color: const Color(0xFF3B82F6)
                   ),
                   _buildStatCard(
                     index: 1,
@@ -685,7 +620,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                     value: '${_stats?['totalPengumuman'] ?? 0}',
                     subtitle: 'Aktif',
                     icon: Icons.campaign_rounded,
-                    color: const Color(0xFF10B981),
+                    color: const Color(0xFF10B981)
                   ),
                   _buildStatCard(
                     index: 2,
@@ -693,16 +628,15 @@ class _AdminDashboardState extends State<AdminDashboard>
                     value: '${_stats?['totalLaporan'] ?? 0}',
                     subtitle: 'Pending',
                     icon: Icons.report_rounded,
-                    color: const Color(0xFFDC2626),
+                    color: const Color(0xFFDC2626)
                   ),
                   _buildStatCard(
                     index: 3,
                     title: 'Iuran',
-                    value:
-                        'Rp ${_formatCurrency(_stats?['totalIuranBulanIni'] ?? 0)}',
+                    value: 'Rp ${_formatCurrency(_stats?['totalIuranBulanIni'] ?? 0)}',
                     subtitle: 'Bulan ini',
                     icon: Icons.payment_rounded,
-                    color: const Color(0xFFF59E0B),
+                    color: const Color(0xFFF59E0B)
                   ),
                 ],
               );
@@ -712,7 +646,7 @@ class _AdminDashboardState extends State<AdminDashboard>
           _buildSectionHeader(
             icon: Icons.history_rounded,
             title: 'Aktivitas Terbaru',
-            subtitle: 'Update sistem terakhir',
+            subtitle: 'Update sistem terakhir'
           ),
           const SizedBox(height: 20),
 
@@ -756,14 +690,14 @@ class _AdminDashboardState extends State<AdminDashboard>
       itemBuilder: (context, index) {
         final aktivitas = _aktivitasList[index];
         // Mendapatkan ikon dan warna berdasarkan tipe aktivitas
-        final visual = _getAktivitasVisuals(aktivitas['tipe']);
+        final visual = _getAktivitasVisuals(aktivitas['tipe']); 
 
         return _buildActivityItem(
           index: index,
           title: aktivitas['judul'] ?? 'Aktivitas Tidak Dikenal',
           subtitle: aktivitas['deskripsi'] ?? '',
           // Menggunakan helper untuk format waktu
-          time: _formatWaktuLalu(aktivitas['createdAt']),
+          time: _formatWaktuLalu(aktivitas['createdAt']), 
           icon: visual['icon'],
           color: visual['color'],
         );
@@ -776,17 +710,11 @@ class _AdminDashboardState extends State<AdminDashboard>
   Map<String, dynamic> _getAktivitasVisuals(String? tipe) {
     switch (tipe) {
       case 'pengumuman':
-        return {
-          'icon': Icons.campaign_rounded,
-          'color': const Color(0xFF10B981),
-        };
+        return {'icon': Icons.campaign_rounded, 'color': const Color(0xFF10B981)};
       case 'laporan':
         return {'icon': Icons.report_rounded, 'color': const Color(0xFFDC2626)};
       case 'iuran':
-        return {
-          'icon': Icons.payment_rounded,
-          'color': const Color(0xFFF59E0B),
-        };
+        return {'icon': Icons.payment_rounded, 'color': const Color(0xFFF59E0B)};
       case 'warga':
         return {'icon': Icons.people_rounded, 'color': const Color(0xFFEC4899)};
       case 'kegiatan':
@@ -794,10 +722,7 @@ class _AdminDashboardState extends State<AdminDashboard>
       case 'umkm':
         return {'icon': Icons.store_rounded, 'color': const Color(0xFF06B6D4)};
       default:
-        return {
-          'icon': Icons.history_rounded,
-          'color': const Color(0xFF64748B),
-        };
+        return {'icon': Icons.history_rounded, 'color': const Color(0xFF64748B)};
     }
   }
 
@@ -830,10 +755,11 @@ class _AdminDashboardState extends State<AdminDashboard>
   }
   // --- AKHIR SEMUA PERUBAHAN ---
 
+
   Widget _buildSectionHeader({
     required IconData icon,
     required String title,
-    required String subtitle,
+    required String subtitle
   }) {
     final isMobile = MediaQuery.of(context).size.width < 600;
 
@@ -869,7 +795,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                   fontSize: isMobile ? 16 : 20,
                   fontWeight: FontWeight.w800,
                   color: const Color(0xFF1A202C),
-                  letterSpacing: -0.5,
+                  letterSpacing: -0.5
                 ),
               ),
               const SizedBox(height: 2),
@@ -878,7 +804,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                 style: TextStyle(
                   fontSize: isMobile ? 11 : 13,
                   color: const Color(0xFF64748B),
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w500
                 ),
               ),
             ],
@@ -895,18 +821,9 @@ class _AdminDashboardState extends State<AdminDashboard>
     required IconData icon,
     required Color color,
     required bool isActive,
-    required VoidCallback onTap,
+    required VoidCallback onTap
   }) {
     final isMobile = MediaQuery.of(context).size.width < 600;
-
-    // Menu yang tidak perlu admin panel
-    final noAdminPanelMenus = [
-      'Pengumuman',
-      'Laporan',
-      'Iuran',
-      'Kegiatan',
-      'UMKM',
-    ];
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
@@ -919,35 +836,7 @@ class _AdminDashboardState extends State<AdminDashboard>
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: noAdminPanelMenus.contains(title)
-              ? () {
-                  // Navigasi ke screen user sesuai menu
-                  Widget targetScreen;
-                  switch (title) {
-                    case 'Pengumuman':
-                      targetScreen = const AnnouncementsScreen();
-                      break;
-                    case 'Laporan':
-                      targetScreen = const ReportsScreen();
-                      break;
-                    case 'Iuran':
-                      targetScreen = const PaymentsScreen();
-                      break;
-                    case 'Kegiatan':
-                      targetScreen = const ActivitiesScreen();
-                      break;
-                    case 'UMKM':
-                      targetScreen = const UMKMScreen();
-                      break;
-                    default:
-                      return;
-                  }
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => targetScreen),
-                  );
-                }
-              : onTap,
+          onTap: onTap,
           borderRadius: BorderRadius.circular(isMobile ? 16 : 20),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 300),
@@ -956,10 +845,7 @@ class _AdminDashboardState extends State<AdminDashboard>
             decoration: BoxDecoration(
               gradient: isActive
                   ? LinearGradient(
-                      colors: [
-                        color.withOpacity(0.15),
-                        color.withOpacity(0.05),
-                      ],
+                      colors: [color.withOpacity(0.15), color.withOpacity(0.05)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     )
@@ -967,16 +853,12 @@ class _AdminDashboardState extends State<AdminDashboard>
               color: isActive ? null : Colors.white,
               borderRadius: BorderRadius.circular(isMobile ? 16 : 20),
               border: Border.all(
-                color: isActive
-                    ? color.withOpacity(0.3)
-                    : const Color(0xFFE2E8F0),
+                color: isActive ? color.withOpacity(0.3) : const Color(0xFFE2E8F0),
                 width: isActive ? 2 : 1,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: isActive
-                      ? color.withOpacity(0.15)
-                      : Colors.black.withOpacity(0.04),
+                  color: isActive ? color.withOpacity(0.15) : Colors.black.withOpacity(0.04),
                   blurRadius: isActive ? 16 : 8,
                   offset: Offset(0, isActive ? 6 : 2),
                 ),
@@ -1044,7 +926,7 @@ class _AdminDashboardState extends State<AdminDashboard>
     required String value,
     required String subtitle,
     required IconData icon,
-    required Color color,
+    required Color color
   }) {
     final isMobile = MediaQuery.of(context).size.width < 600;
 
@@ -1054,10 +936,7 @@ class _AdminDashboardState extends State<AdminDashboard>
       curve: Curves.easeOutCubic,
       builder: (context, animValue, child) => Opacity(
         opacity: animValue,
-        child: Transform.translate(
-          offset: Offset(0, 30 * (1 - animValue)),
-          child: child,
-        ),
+        child: Transform.translate(offset: Offset(0, 30 * (1 - animValue)), child: child),
       ),
       child: Container(
         padding: EdgeInsets.all(isMobile ? 14 : 20),
@@ -1103,7 +982,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                     fontSize: isMobile ? 20 : 24,
                     fontWeight: FontWeight.w900,
                     color: color,
-                    letterSpacing: -0.5,
+                    letterSpacing: -0.5
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -1114,7 +993,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                   style: TextStyle(
                     fontSize: isMobile ? 12 : 13,
                     color: const Color(0xFF1A202C),
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w600
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -1124,7 +1003,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                   style: TextStyle(
                     fontSize: isMobile ? 10 : 11,
                     color: const Color(0xFF64748B),
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w500
                   ),
                 ),
               ],
@@ -1141,7 +1020,7 @@ class _AdminDashboardState extends State<AdminDashboard>
     required String subtitle,
     required String time,
     required IconData icon,
-    required Color color,
+    required Color color
   }) {
     final isMobile = MediaQuery.of(context).size.width < 600;
 
@@ -1151,10 +1030,7 @@ class _AdminDashboardState extends State<AdminDashboard>
       curve: Curves.easeOut,
       builder: (context, animValue, child) => Opacity(
         opacity: animValue,
-        child: Transform.translate(
-          offset: Offset(0, 20 * (1 - animValue)),
-          child: child,
-        ),
+        child: Transform.translate(offset: Offset(0, 20 * (1 - animValue)), child: child),
       ),
       child: Container(
         margin: const EdgeInsets.only(bottom: 14),
@@ -1172,10 +1048,7 @@ class _AdminDashboardState extends State<AdminDashboard>
         ),
         // --- PERUBAHAN --- Menggunakan ListTile agar lebih rapi dan responsif
         child: ListTile(
-          contentPadding: EdgeInsets.symmetric(
-            horizontal: isMobile ? 12 : 18,
-            vertical: isMobile ? 4 : 8,
-          ),
+          contentPadding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 18, vertical: isMobile ? 4 : 8),
           leading: Container(
             padding: EdgeInsets.all(isMobile ? 10 : 12),
             decoration: BoxDecoration(
@@ -1194,7 +1067,7 @@ class _AdminDashboardState extends State<AdminDashboard>
               fontSize: isMobile ? 13 : 14,
               fontWeight: FontWeight.w700,
               color: const Color(0xFF1A202C),
-              letterSpacing: -0.2,
+              letterSpacing: -0.2
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -1204,7 +1077,7 @@ class _AdminDashboardState extends State<AdminDashboard>
             style: TextStyle(
               fontSize: isMobile ? 11 : 12,
               color: const Color(0xFF64748B),
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w500
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -1214,10 +1087,10 @@ class _AdminDashboardState extends State<AdminDashboard>
             style: TextStyle(
               fontSize: isMobile ? 10 : 11,
               color: const Color(0xFF94A3B8),
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w600
             ),
           ),
-        ),
+        )
       ),
     );
   }
@@ -1228,39 +1101,21 @@ class _AdminDashboardState extends State<AdminDashboard>
 
     switch (selectedMenu['title']) {
       case 'Pengumuman':
-        return PengumumanPage(
-          onBackPressed: () => setState(() => _selectedIndex = 0),
-        );
+        return PengumumanPage(onBackPressed: () => setState(() => _selectedIndex = 0));
       case 'Laporan':
-        return LaporanPage(
-          onBackPressed: () => setState(() => _selectedIndex = 0),
-        );
+        return LaporanPage(onBackPressed: () => setState(() => _selectedIndex = 0));
       case 'Iuran':
-        return IuranPage(
-          onBackPressed: () => setState(() => _selectedIndex = 0),
-        );
+        return IuranPage(onBackPressed: () => setState(() => _selectedIndex = 0));
       case 'Kegiatan':
-        return KegiatanPage(
-          onBackPressed: () => setState(() => _selectedIndex = 0),
-        );
+        return KegiatanPage(onBackPressed: () => setState(() => _selectedIndex = 0));
       case 'UMKM':
-        return UMKMAdminPage(
-          onBackPressed: () => setState(() => _selectedIndex = 0),
-        );
+        return UMKMAdminPage(onBackPressed: () => setState(() => _selectedIndex = 0));
       case 'Warga':
-        return WargaAdminPage(
-          onBackPressed: () => setState(() => _selectedIndex = 0),
-        );
+        return WargaAdminPage(onBackPressed: () => setState(() => _selectedIndex = 0));
       case 'Surat Pengantar':
-        return SuratPengantarAdminScreen(
-          onBackPressed: () => setState(() => _selectedIndex = 0),
-        );
+        return SuratPengantarAdminScreen(onBackPressed: () => setState(() => _selectedIndex = 0));
       default:
-        return _buildPlaceholderContent(
-          selectedMenu['title'],
-          selectedMenu['icon'],
-          selectedMenu['color'],
-        );
+        return _buildPlaceholderContent(selectedMenu['title'], selectedMenu['icon'], selectedMenu['color']);
     }
   }
 
@@ -1281,7 +1136,10 @@ class _AdminDashboardState extends State<AdminDashboard>
               padding: const EdgeInsets.all(32),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [color.withOpacity(0.15), color.withOpacity(0.05)],
+                  colors: [
+                    color.withOpacity(0.15),
+                    color.withOpacity(0.05),
+                  ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -1297,24 +1155,9 @@ class _AdminDashboardState extends State<AdminDashboard>
               child: Icon(icon, size: 64, color: color),
             ),
             const SizedBox(height: 28),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF1A202C),
-                letterSpacing: -0.5,
-              ),
-            ),
+            Text(title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFF1A202C), letterSpacing: -0.5)),
             const SizedBox(height: 8),
-            Text(
-              'Halaman ini sedang dalam pengembangan',
-              style: TextStyle(
-                fontSize: 14,
-                color: const Color(0xFF64748B).withOpacity(0.9),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+            Text('Halaman ini sedang dalam pengembangan', style: TextStyle(fontSize: 14, color: const Color(0xFF64748B).withOpacity(0.9), fontWeight: FontWeight.w500)),
             const SizedBox(height: 20),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -1333,7 +1176,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () => setState(() => _selectedIndex = 0),
               child: const Text('Kembali ke Dashboard'),
@@ -1383,9 +1226,7 @@ class _AdminDashboardState extends State<AdminDashboard>
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: EdgeInsets.all(
-                  MediaQuery.of(context).size.width < 600 ? 16 : 28,
-                ),
+                padding: EdgeInsets.all(MediaQuery.of(context).size.width < 600 ? 16 : 28),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
@@ -1397,11 +1238,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                   ),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.logout_rounded,
-                  color: Color(0xFFDC2626),
-                  size: 36,
-                ),
+                child: const Icon(Icons.logout_rounded, color: Color(0xFFDC2626), size: 36),
               ),
               const SizedBox(height: 24),
               const Text(
@@ -1432,10 +1269,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
-                          side: const BorderSide(
-                            color: Color(0xFFCBD5E1),
-                            width: 1.5,
-                          ),
+                          side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.5),
                         ),
                       ),
                       onPressed: () => Navigator.of(ctx).pop(),
@@ -1462,14 +1296,9 @@ class _AdminDashboardState extends State<AdminDashboard>
                         elevation: 0,
                       ),
                       onPressed: () {
-                        Navigator.of(ctx).pop();
-                        Provider.of<AuthProvider>(
-                          context,
-                          listen: false,
-                        ).logout();
-                        Navigator.of(
-                          context,
-                        ).pushNamedAndRemoveUntil('/login', (route) => false);
+                        Navigator.of(ctx).pop(); 
+                        Provider.of<AuthProvider>(context, listen: false).logout();
+                        Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
                       },
                       child: const Text(
                         'Logout',
@@ -1501,11 +1330,7 @@ class ModernPatternPainter extends CustomPainter {
       ..strokeWidth = 1.5;
 
     for (double i = -size.height; i < size.width * 1.5; i += 40) {
-      canvas.drawLine(
-        Offset(i, -size.height * 0.5),
-        Offset(i - size.width * 0.5, size.height * 1.5),
-        paint,
-      );
+      canvas.drawLine(Offset(i, -size.height * 0.5), Offset(i - size.width * 0.5, size.height * 1.5), paint);
     }
   }
 
@@ -1527,12 +1352,12 @@ class GeometricPatternPainter extends CustomPainter {
         canvas.drawCircle(Offset(i, j), 20, paint);
       }
     }
-
+    
     // Draw lines
     for (double i = 0; i < size.width; i += 80) {
       canvas.drawLine(Offset(i, 0), Offset(i, size.height), paint);
     }
-    for (double j = 0; j < size.height; j += 80) {
+     for (double j = 0; j < size.height; j += 80) {
       canvas.drawLine(Offset(0, j), Offset(size.width, j), paint);
     }
   }

@@ -6,7 +6,7 @@ console.log('Testing admin aktivitas API...');
 
 // Test admin aktivitas endpoint
 const options = {
-  hostname: '192.168.1.5',
+  hostname: '172.168.47.124',
   port: 3000,
   path: '/api/admin/aktivitas',
   method: 'GET',
