@@ -19,6 +19,10 @@ class AuthProvider with ChangeNotifier {
   String? get errorMessage => _errorMessage;
   Map<String, dynamic>? get userData => _userData;
 
+  // 🔥 TAMBAHAN: Getter untuk mengecek apakah user adalah admin
+  bool get isAdmin => _userData?['role'] == 'ketua_rt';
+  String? get userRole => _userData?['role'];
+
   // Admin verification getters
   bool get isAdminVerification => _isAdminVerification;
   bool get isVerificationLoading => _isVerificationLoading;
@@ -79,14 +83,28 @@ class AuthProvider with ChangeNotifier {
       final token = await _getToken();
       if (token != null) {
         print('✅ TOKEN FOUND, VERIFYING WITH SERVER...'); // DEBUG
+        
+        // 🔥 PERBAIKAN: Load user data dari storage dulu
+        _userData = await _loadUserData();
+        print('👤 LOADED USER DATA: $_userData'); // DEBUG
+        print('👤 USER ROLE: ${_userData?['role']}'); // DEBUG
+        
         // Verify token with server by calling getUserProfile
         final apiService = ApiService();
         final result = await apiService.getUserProfile();
+        
         if (result['success'] == true) {
           print('✅ TOKEN VALID'); // DEBUG
           _isAuthenticated = true;
-          _userData = await _loadUserData();
-          print('👤 USER DATA IN PROVIDER: $_userData'); // DEBUG
+          
+          // 🔥 PERBAIKAN: Update user data dari server jika ada
+          if (result['data'] != null) {
+            _userData = result['data'] as Map<String, dynamic>;
+            await _saveUserData(_userData!);
+            print('🔄 USER DATA UPDATED FROM SERVER: $_userData'); // DEBUG
+            print('🔑 UPDATED USER ROLE: ${_userData?['role']}'); // DEBUG
+          }
+          
         } else {
           print('❌ TOKEN INVALID, CLEARING...'); // DEBUG
           await _clearToken();
@@ -101,16 +119,30 @@ class AuthProvider with ChangeNotifier {
       }
     } catch (e) {
       print('❌ ERROR IN checkAuthStatus: $e'); // DEBUG
-      // On error (e.g., network issues), treat as not authenticated
-      await _clearToken();
-      await _clearUserData();
-      _isAuthenticated = false;
-      _userData = null;
+      // 🔥 PERBAIKAN: Jangan clear data jika hanya network error
+      // Biarkan user tetap authenticated dengan data lokal
+      final token = await _getToken();
+      if (token != null) {
+        _userData = await _loadUserData();
+        if (_userData != null) {
+          _isAuthenticated = true;
+          print('⚠️ USING CACHED USER DATA DUE TO NETWORK ERROR'); // DEBUG
+        } else {
+          await _clearToken();
+          await _clearUserData();
+          _isAuthenticated = false;
+          _userData = null;
+        }
+      } else {
+        _isAuthenticated = false;
+        _userData = null;
+      }
       _errorMessage = 'Error checking auth status: $e';
     }
 
     _isLoading = false;
     notifyListeners();
+    print('🏁 AUTH CHECK COMPLETE - isAuth: $_isAuthenticated, role: ${_userData?['role']}'); // DEBUG
     return _isAuthenticated;
   }
 
@@ -143,6 +175,7 @@ class AuthProvider with ChangeNotifier {
 
           // Cek field nama_lengkap
           print('👤 NAMA LENGKAP: ${_userData?['nama_lengkap']}'); // DEBUG
+          print('👑 USER ROLE: ${_userData?['role']}'); // DEBUG
 
           // Cek jika user adalah ketua RT (role = 'ketua_rt')
           if (_userData?['role'] == 'ketua_rt') {

@@ -14,7 +14,11 @@ router.post('/', authenticateUser, uploadLampiran, async (req, res) => {
         const pengaju_id = req.user?.id || req.body.pengaju_id;
 
         if (!pengaju_id) {
-            return res.status(401).json({ message: 'User tidak terautentikasi' });
+            return res.status(401).json({ success: false, message: 'User tidak terautentikasi' });
+        }
+
+        if (!jenis_surat || !keperluan) {
+            return res.status(400).json({ success: false, message: 'Jenis surat dan keperluan harus diisi' });
         }
 
         // Proses lampiran dokumen
@@ -24,12 +28,20 @@ router.post('/', authenticateUser, uploadLampiran, async (req, res) => {
             dokumen_lain: []
         };
 
-        // Proses dokumen lain jika ada
+        // Proses dokumen lain jika ada (dari Flutter: field 'files')
         if (req.files?.dokumen_lain && dokumen_lain_nama) {
             const namaDokumenArray = Array.isArray(dokumen_lain_nama) ? dokumen_lain_nama : [dokumen_lain_nama];
             req.files.dokumen_lain.forEach((file, index) => {
                 lampiranDokumen.dokumen_lain.push({
                     nama_dokumen: namaDokumenArray[index] || `Dokumen ${index + 1}`,
+                    file_url: `/uploads/${file.filename}`
+                });
+            });
+        } else if (req.files?.files) {
+            // Handle field 'files' dari Flutter
+            req.files.files.forEach((file, index) => {
+                lampiranDokumen.dokumen_lain.push({
+                    nama_dokumen: file.originalname || `Dokumen ${index + 1}`,
                     file_url: `/uploads/${file.filename}`
                 });
             });
@@ -47,9 +59,10 @@ router.post('/', authenticateUser, uploadLampiran, async (req, res) => {
         const savedSurat = await suratBaru.save();
         await savedSurat.populate('pengaju_id', 'nama_lengkap email');
 
-        res.status(201).json(savedSurat);
+        res.status(201).json({ success: true, data: savedSurat });
     } catch (err) {
-        res.status(400).json({ message: err.message });
+        console.error('❌ Error in POST /surat-pengantar:', err);
+        res.status(500).json({ success: false, message: err.message || 'Internal server error' });
     }
 });
 
@@ -59,27 +72,34 @@ router.get('/', authenticateUser, async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
-            return res.status(401).json({ message: 'User tidak terautentikasi' });
+            return res.status(401).json({ success: false, message: 'User tidak terautentikasi' });
         }
 
         const surat = await SuratPengantar.find({ pengaju_id: userId })
                             .populate('pengaju_id', 'nama_lengkap email')
                             .sort({ createdAt: -1 });
-        res.json(surat);
+        res.json({ success: true, data: surat });
     } catch (err) {
-        res.status(500).json({ message: err.message });
+        console.error('❌ Error in GET /surat-pengantar:', err);
+        res.status(500).json({ success: false, message: err.message });
     }
 });
 
-// GET /api/surat-pengantar/admin (untuk admin melihat semua pengajuan)
-router.get('/admin', requireAdmin, async (req, res) => {
+// GET /api/surat-pengantar/admin (untuk admin melihat semua pengajuan) - HARUS SEBELUM :id
+router.get('/admin', authenticateUser, async (req, res) => {
     try {
+        // Check if user is admin
+        if (req.user?.role !== 'ketua_rt') {
+            return res.status(403).json({ success: false, message: 'Akses ditolak. Hanya admin yang dapat mengakses.' });
+        }
+
         const surat = await SuratPengantar.find()
                             .populate('pengaju_id', 'nama_lengkap email')
                             .sort({ createdAt: -1 });
-        res.json(surat);
+        res.json({ success: true, data: surat });
     } catch (err) {
-        res.status(500).json({ message: err.message });
+        console.error('❌ Error in GET /surat-pengantar/admin:', err);
+        res.status(500).json({ success: false, message: err.message });
     }
 });
 
@@ -90,7 +110,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
         const { status_pengajuan, tanggapan_admin, file_surat } = req.body;
 
         if (!['Diajukan', 'Diproses', 'Disetujui', 'Ditolak'].includes(status_pengajuan)) {
-            return res.status(400).json({ message: 'Status tidak valid' });
+            return res.status(400).json({ success: false, message: 'Status tidak valid' });
         }
 
         const updateData = {
@@ -107,12 +127,13 @@ router.put('/:id', requireAdmin, async (req, res) => {
         ).populate('pengaju_id', 'nama_lengkap email');
 
         if (!updatedSurat) {
-            return res.status(404).json({ message: 'Surat pengantar tidak ditemukan' });
+            return res.status(404).json({ success: false, message: 'Surat pengantar tidak ditemukan' });
         }
 
-        res.json(updatedSurat);
+        res.json({ success: true, data: updatedSurat });
     } catch (err) {
-        res.status(400).json({ message: err.message });
+        console.error('❌ Error in PUT /surat-pengantar/:id:', err);
+        res.status(500).json({ success: false, message: err.message });
     }
 });
 
@@ -123,12 +144,13 @@ router.delete('/:id', authenticateUser, async (req, res) => {
         const deletedSurat = await SuratPengantar.findByIdAndDelete(req.params.id);
 
         if (!deletedSurat) {
-            return res.status(404).json({ message: 'Surat pengantar tidak ditemukan' });
+            return res.status(404).json({ success: false, message: 'Surat pengantar tidak ditemukan' });
         }
 
-        res.json({ message: 'Pengajuan surat berhasil dihapus' });
+        res.json({ success: true, message: 'Pengajuan surat berhasil dihapus' });
     } catch (err) {
-        res.status(500).json({ message: err.message });
+        console.error('❌ Error in DELETE /surat-pengantar/:id:', err);
+        res.status(500).json({ success: false, message: err.message });
     }
 });
 

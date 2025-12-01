@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../services/api_service.dart';
 import 'package:intl/intl.dart';
+
+import '../../services/api_service.dart';
 
 class LaporanPage extends StatefulWidget {
   final VoidCallback? onBackPressed;
@@ -18,7 +19,12 @@ class _LaporanPageState extends State<LaporanPage> {
   String _selectedFilter = 'Semua';
   String _searchQuery = '';
 
-  final List<String> _filterOptions = ['Semua', 'Pending', 'Proses', 'Selesai'];
+  final List<String> _filterOptions = [
+    'Semua',
+    'Diterima',
+    'Diproses',
+    'Selesai',
+  ];
 
   @override
   void initState() {
@@ -30,14 +36,17 @@ class _LaporanPageState extends State<LaporanPage> {
     setState(() => _isLoading = true);
     try {
       final result = await _apiService.getLaporan();
+      debugPrint('📋 Load Laporan result: ${result['success']}');
+      debugPrint('📋 Laporan data count: ${result['data']?.length ?? 0}');
       if (result['success'] && mounted) {
         setState(() {
           _laporanList = result['data'] ?? [];
+          debugPrint('✅ Loaded ${_laporanList.length} laporan');
           _isLoading = false;
         });
       }
     } catch (e) {
-      debugPrint('Error: $e');
+      debugPrint('❌ Error loading laporan: $e');
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -120,9 +129,9 @@ class _LaporanPageState extends State<LaporanPage> {
   }
 
   Map<String, int> get _statusCounts {
-    final counts = {'Pending': 0, 'Proses': 0, 'Selesai': 0};
+    final counts = {'Diterima': 0, 'Diproses': 0, 'Selesai': 0};
     for (var item in _laporanList) {
-      final status = item['status']?.toString() ?? 'Pending';
+      final status = item['status']?.toString() ?? 'Diterima';
       counts[status] = (counts[status] ?? 0) + 1;
     }
     return counts;
@@ -271,12 +280,23 @@ class _LaporanPageState extends State<LaporanPage> {
 
   Widget _buildStatusCards() {
     final counts = _statusCounts;
+    final pendingCount = (counts['Diterima'] ?? 0) + (counts['Diproses'] ?? 0);
+
     return Row(
       children: [
         Expanded(
           child: _buildStatusCard(
-            'Pending',
-            counts['Pending'] ?? 0,
+            'Laporan Pending',
+            pendingCount,
+            Icons.priority_high_rounded,
+            const Color(0xFFDC2626),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatusCard(
+            'Diterima',
+            counts['Diterima'] ?? 0,
             Icons.schedule_rounded,
             const Color(0xFFF59E0B),
           ),
@@ -284,8 +304,8 @@ class _LaporanPageState extends State<LaporanPage> {
         const SizedBox(width: 12),
         Expanded(
           child: _buildStatusCard(
-            'Proses',
-            counts['Proses'] ?? 0,
+            'Diproses',
+            counts['Diproses'] ?? 0,
             Icons.sync_rounded,
             const Color(0xFF3B82F6),
           ),
@@ -481,9 +501,13 @@ class _LaporanPageState extends State<LaporanPage> {
         statusColor = const Color(0xFF10B981);
         statusIcon = Icons.check_circle_rounded;
         break;
-      case 'proses':
+      case 'diproses':
         statusColor = const Color(0xFF3B82F6);
         statusIcon = Icons.sync_rounded;
+        break;
+      case 'diterima':
+        statusColor = const Color(0xFFF59E0B);
+        statusIcon = Icons.schedule_rounded;
         break;
       default:
         statusColor = const Color(0xFFF59E0B);
@@ -914,7 +938,7 @@ class _LaporanPageState extends State<LaporanPage> {
   }
 
   void _showUpdateStatusDialog(Map<String, dynamic> item) {
-    String selectedStatus = item['status']?.toString() ?? 'Pending';
+    String selectedStatus = item['status']?.toString() ?? 'Diterima';
     final tanggapanController = TextEditingController(
       text: item['tanggapan']?.toString() ?? '',
     );
@@ -970,49 +994,49 @@ class _LaporanPageState extends State<LaporanPage> {
                   spacing: 12,
                   children: [
                     FilterChip(
-                      label: const Text('Pending'),
-                      selected: selectedStatus == 'Pending',
+                      label: const Text('Diterima'),
+                      selected: selectedStatus == 'Diterima',
                       onSelected: (bool selected) {
                         if (selected)
-                          setDialogState(() => selectedStatus = 'Pending');
+                          setDialogState(() => selectedStatus = 'Diterima');
                       },
                       selectedColor: const Color(0xFFF59E0B).withOpacity(0.2),
                       checkmarkColor: const Color(0xFFF59E0B),
                       backgroundColor: Colors.white,
                       side: BorderSide(
-                        color: selectedStatus == 'Pending'
+                        color: selectedStatus == 'Diterima'
                             ? const Color(0xFFF59E0B)
                             : const Color(0xFFE2E8F0),
                       ),
                       labelStyle: TextStyle(
-                        color: selectedStatus == 'Pending'
+                        color: selectedStatus == 'Diterima'
                             ? const Color(0xFFF59E0B)
                             : const Color(0xFF64748B),
-                        fontWeight: selectedStatus == 'Pending'
+                        fontWeight: selectedStatus == 'Diterima'
                             ? FontWeight.w700
                             : FontWeight.w500,
                       ),
                     ),
                     FilterChip(
-                      label: const Text('Proses'),
-                      selected: selectedStatus == 'Proses',
+                      label: const Text('Diproses'),
+                      selected: selectedStatus == 'Diproses',
                       onSelected: (bool selected) {
                         if (selected)
-                          setDialogState(() => selectedStatus = 'Proses');
+                          setDialogState(() => selectedStatus = 'Diproses');
                       },
                       selectedColor: const Color(0xFF3B82F6).withOpacity(0.2),
                       checkmarkColor: const Color(0xFF3B82F6),
                       backgroundColor: Colors.white,
                       side: BorderSide(
-                        color: selectedStatus == 'Proses'
+                        color: selectedStatus == 'Diproses'
                             ? const Color(0xFF3B82F6)
                             : const Color(0xFFE2E8F0),
                       ),
                       labelStyle: TextStyle(
-                        color: selectedStatus == 'Proses'
+                        color: selectedStatus == 'Diproses'
                             ? const Color(0xFF3B82F6)
                             : const Color(0xFF64748B),
-                        fontWeight: selectedStatus == 'Proses'
+                        fontWeight: selectedStatus == 'Diproses'
                             ? FontWeight.w700
                             : FontWeight.w500,
                       ),

@@ -90,6 +90,14 @@ router.get('/stats', authenticateUser, requireAdmin, async (req, res) => {
         const umkmCount = await require('../models/Umkm').countDocuments();
         const suratPengantarCount = await require('../models/SuratPengantar').countDocuments();
 
+        // Hitung laporan dengan status pending (Diterima atau Diproses)
+        const laporanPendingCount = await require('../models/LaporanWarga').countDocuments({
+            $or: [
+                { status_laporan: 'Diterima' },
+                { status_laporan: 'Diproses' }
+            ]
+        });
+
         // Hitung total iuran bulan ini
         const currentDate = new Date();
         const currentMonth = currentDate.getMonth() + 1; // getMonth() returns 0-11
@@ -117,6 +125,7 @@ router.get('/stats', authenticateUser, requireAdmin, async (req, res) => {
             totalWarga: userCount,
             totalPengumuman: pengumumanCount,
             totalLaporan: laporanCount,
+            totalLaporanPending: laporanPendingCount,
             totalIuran: iuranCount,
             totalIuranBulanIni: totalIuranBulanIni,
             totalKegiatan: kegiatanCount,

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'dart:io';
-import '../services/api_service.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
+
+import '../services/api_service.dart';
 
 class SuratPengantarScreen extends StatefulWidget {
   const SuratPengantarScreen({super.key});
@@ -37,7 +37,9 @@ class _SuratPengantarScreenState extends State<SuratPengantarScreen> {
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(result['message'] ?? 'Gagal memuat surat pengantar'),
+              content: Text(
+                result['message'] ?? 'Gagal memuat surat pengantar',
+              ),
               backgroundColor: Colors.red.shade400,
               behavior: SnackBarBehavior.floating,
             ),
@@ -108,13 +110,22 @@ class _SuratPengantarScreenState extends State<SuratPengantarScreen> {
                       value: selectedJenisSurat,
                       isExpanded: true,
                       icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                      items: ['KTP', 'KK', 'SKCK', 'Domisili', 'Kelahiran', 'Kematian', 'Nikah', 'Lainnya']
-                          .map((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
+                      items:
+                          [
+                            'KTP',
+                            'KK',
+                            'SKCK',
+                            'Domisili',
+                            'Kelahiran',
+                            'Kematian',
+                            'Nikah',
+                            'Lainnya',
+                          ].map((String value) {
+                            return DropdownMenuItem<String>(
+                              value: value,
+                              child: Text(value),
+                            );
+                          }).toList(),
                       onChanged: (String? newValue) {
                         setModalState(() {
                           selectedJenisSurat = newValue!;
@@ -193,18 +204,25 @@ class _SuratPengantarScreenState extends State<SuratPengantarScreen> {
                           Expanded(
                             child: ElevatedButton.icon(
                               onPressed: () async {
-                                final pickedFile = await _imagePicker.pickImage(source: ImageSource.camera);
+                                final pickedFile = await _imagePicker.pickImage(
+                                  source: ImageSource.camera,
+                                );
                                 if (pickedFile != null) {
                                   setModalState(() {
                                     selectedFiles.add(pickedFile);
                                   });
                                 }
                               },
-                              icon: const Icon(Icons.camera_alt, color: Colors.white),
+                              icon: const Icon(
+                                Icons.camera_alt,
+                                color: Colors.white,
+                              ),
                               label: const Text('Kamera'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF3B82F6),
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -215,18 +233,25 @@ class _SuratPengantarScreenState extends State<SuratPengantarScreen> {
                           Expanded(
                             child: ElevatedButton.icon(
                               onPressed: () async {
-                                final pickedFile = await _imagePicker.pickImage(source: ImageSource.gallery);
+                                final pickedFile = await _imagePicker.pickImage(
+                                  source: ImageSource.gallery,
+                                );
                                 if (pickedFile != null) {
                                   setModalState(() {
                                     selectedFiles.add(pickedFile);
                                   });
                                 }
                               },
-                              icon: const Icon(Icons.photo_library, color: Colors.white),
+                              icon: const Icon(
+                                Icons.photo_library,
+                                color: Colors.white,
+                              ),
                               label: const Text('Galeri'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF10B981),
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -242,7 +267,10 @@ class _SuratPengantarScreenState extends State<SuratPengantarScreen> {
                           runSpacing: 8,
                           children: selectedFiles.map((file) {
                             return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFE0F2FE),
                                 borderRadius: BorderRadius.circular(20),
@@ -250,10 +278,16 @@ class _SuratPengantarScreenState extends State<SuratPengantarScreen> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.attach_file, size: 16, color: Color(0xFF3B82F6)),
+                                  const Icon(
+                                    Icons.attach_file,
+                                    size: 16,
+                                    color: Color(0xFF3B82F6),
+                                  ),
                                   const SizedBox(width: 4),
                                   Text(
-                                    file.name.length > 20 ? '${file.name.substring(0, 20)}...' : file.name,
+                                    file.name.length > 20
+                                        ? '${file.name.substring(0, 20)}...'
+                                        : file.name,
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: Color(0xFF1F2937),
@@ -266,7 +300,11 @@ class _SuratPengantarScreenState extends State<SuratPengantarScreen> {
                                         selectedFiles.remove(file);
                                       });
                                     },
-                                    child: const Icon(Icons.close, size: 16, color: Colors.red),
+                                    child: const Icon(
+                                      Icons.close,
+                                      size: 16,
+                                      color: Colors.red,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -295,8 +333,6 @@ class _SuratPengantarScreenState extends State<SuratPengantarScreen> {
                         return;
                       }
 
-                      Navigator.pop(context);
-
                       // Prepare multipart files
                       List<http.MultipartFile> multipartFiles = [];
                       for (var file in selectedFiles) {
@@ -310,17 +346,34 @@ class _SuratPengantarScreenState extends State<SuratPengantarScreen> {
                         );
                       }
 
-                      final result = await _apiService.createSuratPengantar({
-                        'jenis_surat': selectedJenisSurat,
-                        'keperluan': keperluanController.text,
-                        'keterangan': keteranganController.text,
-                      }, files: multipartFiles.isNotEmpty ? multipartFiles : null);
+                      debugPrint('📤 Creating surat pengantar...');
+                      debugPrint('   Jenis: $selectedJenisSurat');
+                      debugPrint('   Keperluan: ${keperluanController.text}');
+                      debugPrint('   Files: ${selectedFiles.length}');
+
+                      final result = await _apiService.createSuratPengantar(
+                        {
+                          'jenis_surat': selectedJenisSurat,
+                          'keperluan': keperluanController.text,
+                          'keterangan': keteranganController.text,
+                        },
+                        files: multipartFiles.isNotEmpty
+                            ? multipartFiles
+                            : null,
+                      );
+
+                      debugPrint('📥 Response: ${result['success']}');
+                      debugPrint('   Message: ${result['message']}');
 
                       if (mounted) {
+                        Navigator.pop(context); // Close dialog AFTER response
+
                         if (result['success']) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Surat pengantar berhasil diajukan'),
+                              content: Text(
+                                'Surat pengantar berhasil diajukan',
+                              ),
                               backgroundColor: Colors.green,
                             ),
                           );
@@ -328,7 +381,9 @@ class _SuratPengantarScreenState extends State<SuratPengantarScreen> {
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text(result['message'] ?? 'Gagal mengajukan surat'),
+                              content: Text(
+                                result['message'] ?? 'Gagal mengajukan surat',
+                              ),
                               backgroundColor: Colors.red,
                             ),
                           );
@@ -397,7 +452,10 @@ class _SuratPengantarScreenState extends State<SuratPengantarScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: IconButton(
-                            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                            icon: const Icon(
+                              Icons.arrow_back_rounded,
+                              color: Colors.white,
+                            ),
                             onPressed: () => Navigator.pop(context),
                           ),
                         ),
@@ -427,38 +485,38 @@ class _SuratPengantarScreenState extends State<SuratPengantarScreen> {
                       ),
                     )
                   : _suratPengantar.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.description_outlined,
-                                size: 80,
-                                color: Colors.grey[300],
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Belum ada pengajuan surat',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.grey[600],
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.description_outlined,
+                            size: 80,
+                            color: Colors.grey[300],
                           ),
-                        )
-                      : RefreshIndicator(
-                          onRefresh: _loadSuratPengantar,
-                          child: ListView.builder(
-                            padding: const EdgeInsets.all(20),
-                            itemCount: _suratPengantar.length,
-                            itemBuilder: (context, index) {
-                              final surat = _suratPengantar[index];
-                              return _buildSuratCard(surat);
-                            },
+                          const SizedBox(height: 16),
+                          Text(
+                            'Belum ada pengajuan surat',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                        ),
+                        ],
+                      ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _loadSuratPengantar,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(20),
+                        itemCount: _suratPengantar.length,
+                        itemBuilder: (context, index) {
+                          final surat = _suratPengantar[index];
+                          return _buildSuratCard(surat);
+                        },
+                      ),
+                    ),
             ),
           ],
         ),
@@ -469,10 +527,7 @@ class _SuratPengantarScreenState extends State<SuratPengantarScreen> {
         icon: const Icon(Icons.add_rounded, color: Colors.white),
         label: const Text(
           'Ajukan Surat',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
       ),
     );
@@ -500,7 +555,10 @@ class _SuratPengantarScreenState extends State<SuratPengantarScreen> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFED7AA),
                     borderRadius: BorderRadius.circular(8),
@@ -516,9 +574,14 @@ class _SuratPengantarScreenState extends State<SuratPengantarScreen> {
                 ),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
-                    color: _getStatusColor(surat['status_pengajuan']).withOpacity(0.2),
+                    color: _getStatusColor(
+                      surat['status_pengajuan'],
+                    ).withOpacity(0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -541,7 +604,8 @@ class _SuratPengantarScreenState extends State<SuratPengantarScreen> {
                 color: Color(0xFF1F2937),
               ),
             ),
-            if (surat['keterangan'] != null && surat['keterangan'].isNotEmpty) ...[
+            if (surat['keterangan'] != null &&
+                surat['keterangan'].isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(
                 surat['keterangan'],
@@ -552,7 +616,8 @@ class _SuratPengantarScreenState extends State<SuratPengantarScreen> {
                 ),
               ),
             ],
-            if (surat['tanggapan_admin'] != null && surat['tanggapan_admin'].isNotEmpty) ...[
+            if (surat['tanggapan_admin'] != null &&
+                surat['tanggapan_admin'].isNotEmpty) ...[
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(12),
@@ -587,7 +652,11 @@ class _SuratPengantarScreenState extends State<SuratPengantarScreen> {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Icon(Icons.access_time_rounded, size: 14, color: Colors.grey[400]),
+                  Icon(
+                    Icons.access_time_rounded,
+                    size: 14,
+                    color: Colors.grey[400],
+                  ),
                   const SizedBox(width: 4),
                   Text(
                     surat['tanggal_pengajuan'],

@@ -49,14 +49,14 @@ mongoose.connect(dbURI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
-.then(() => {
+  .then(() => {
   console.log("✅ Berhasil terhubung ke MongoDB");
 
   // 6. Jalankan server HANYA JIKA koneksi DB berhasil
-  app.listen(PORT, '192.168.1.5', () => {
-    console.log(`🚀 Server berjalan di http://192.168.1.5:${PORT}`);
-    console.log(`🚀 Akses juga via http://localhost:${PORT}`);
-    console.log(`🚀 API base URL: http://192.168.1.5:${PORT}/api`);
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Server berjalan di http://localhost:${PORT}`);
+    console.log(`🚀 Akses dari device lain: http://192.168.56.1:${PORT}`);
+    console.log(`🚀 API base URL: http://192.168.56.1:${PORT}/api`);
   });
 })
 .catch((err) => {
@@ -92,6 +92,24 @@ app.use('/api/kegiatan', kegiatanRoutes);
 app.use('/api/umkm', umkmRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/surat-pengantar', suratPengantarRoutes);
+
+// --- Multer Error Handling Middleware (harus SETELAH routes) ---
+app.use((err, req, res, next) => {
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({ success: false, message: 'File terlalu besar. Maksimal 5MB' });
+  }
+  if (err.code === 'LIMIT_FILE_COUNT') {
+    return res.status(400).json({ success: false, message: 'Terlalu banyak file' });
+  }
+  if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+    return res.status(400).json({ success: false, message: 'Field file tidak valid' });
+  }
+  if (err.message && err.message.includes('File type not allowed')) {
+    return res.status(400).json({ success: false, message: 'Tipe file tidak didukung. Gunakan JPG, PNG, atau PDF' });
+  }
+  // Pass ke error handler berikutnya
+  next(err);
+});
 
 // --- Error Handling Middleware ---
 app.use((err, req, res, next) => {

@@ -90,25 +90,33 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   }
 
   Future<void> _checkAuth() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    await authProvider.checkAuthStatus();
+  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  
+  print('🚀 SPLASH: Starting auth check...'); // DEBUG
+  await authProvider.checkAuthStatus();
+  print('🚀 SPLASH: Auth check complete'); // DEBUG
+  print('🚀 SPLASH: isAuthenticated = ${authProvider.isAuthenticated}'); // DEBUG
+  print('🚀 SPLASH: isAdmin = ${authProvider.isAdmin}'); // DEBUG
+  print('🚀 SPLASH: userRole = ${authProvider.userRole}'); // DEBUG
 
-    await Future.delayed(const Duration(milliseconds: 3000));
+  await Future.delayed(const Duration(milliseconds: 3000));
 
-    if (!mounted) return;
+  if (!mounted) return;
 
-    if (authProvider.isAuthenticated) {
-      // Check user role to navigate to appropriate dashboard
-      final userData = authProvider.userData;
-      if (userData != null && userData['role'] == 'ketua_rt') {
-        Navigator.of(context).pushReplacementNamed('/admin-dashboard');
-      } else {
-        Navigator.of(context).pushReplacementNamed('/dashboard');
-      }
+  if (authProvider.isAuthenticated) {
+    // 🔥 PERBAIKAN: Gunakan getter isAdmin dari provider
+    if (authProvider.isAdmin) {
+      print('🚀 SPLASH: Navigating to ADMIN dashboard'); // DEBUG
+      Navigator.of(context).pushReplacementNamed('/admin-dashboard');
     } else {
-      Navigator.of(context).pushReplacementNamed('/login');
+      print('🚀 SPLASH: Navigating to USER dashboard'); // DEBUG
+      Navigator.of(context).pushReplacementNamed('/dashboard');
     }
+  } else {
+    print('🚀 SPLASH: Not authenticated, navigating to login'); // DEBUG
+    Navigator.of(context).pushReplacementNamed('/login');
   }
+}
 
   @override
   void dispose() {

@@ -47,7 +47,8 @@ const upload = multer({
 const uploadLampiran = upload.fields([
     { name: 'ktp', maxCount: 1 },
     { name: 'kk', maxCount: 1 },
-    { name: 'dokumen_lain', maxCount: 5 } // Maksimal 5 dokumen tambahan
+    { name: 'dokumen_lain', maxCount: 5 }, // Maksimal 5 dokumen tambahan
+    { name: 'files', maxCount: 5 } // Field dari Flutter
 ]);
 
 module.exports = {

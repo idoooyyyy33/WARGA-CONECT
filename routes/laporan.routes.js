@@ -40,21 +40,39 @@ router.get('/', async (req, res) => {
 });
 
 // === UPDATE (Mengubah Status Laporan, oleh RT/RW) ===
-// PUT /api/laporan/:id
+// PUT /api/laporan/:id (untuk user/warga)
+// PUT /api/admin/laporan/:id (untuk admin)
 router.put('/:id', async (req, res) => {
     try {
-        // Admin hanya bisa update status
-        const { status_laporan } = req.body;
+        // Admin bisa update status dan tanggapan
+        const { status_laporan, tanggapan, kategori_laporan, lokasi } = req.body;
 
-        if (!['Diterima', 'Diproses', 'Selesai', 'Ditolak'].includes(status_laporan)) {
-            return res.status(400).json({ message: 'Status tidak valid' });
+        const updateData = {};
+
+        if (status_laporan) {
+            if (!['Diterima', 'Diproses', 'Selesai', 'Ditolak'].includes(status_laporan)) {
+                return res.status(400).json({ message: 'Status tidak valid' });
+            }
+            updateData.status_laporan = status_laporan;
+        }
+
+        if (tanggapan !== undefined) {
+            updateData.tanggapan = tanggapan;
+        }
+
+        if (kategori_laporan !== undefined) {
+            updateData.kategori_laporan = kategori_laporan;
+        }
+
+        if (lokasi !== undefined) {
+            updateData.lokasi = lokasi;
         }
 
         const updatedLaporan = await LaporanWarga.findByIdAndUpdate(
             req.params.id,
-            { status_laporan: status_laporan },
+            updateData,
             { new: true } // Kirim balik data yang sudah ter-update
-        );
+        ).populate('pelapor_id', 'nama_lengkap email');
 
         if (!updatedLaporan) {
             return res.status(404).json({ message: 'Laporan tidak ditemukan' });

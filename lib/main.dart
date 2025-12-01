@@ -1,21 +1,57 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'providers/auth_provider.dart';
+
 import 'providers/announcement_provider.dart';
-import 'screen user/splash_screen.dart';
-import 'screen user/login_screen.dart';
-import 'screen user/register_screen.dart';
-import 'screen user/dashboard_screen.dart';
-import 'screen user/announcements_screen.dart';
-import 'screen user/reports_screen.dart';
-import 'screen user/payments_screen.dart';
-import 'screen user/activities_screen.dart';
-import 'screen user/umkm_screen.dart';
-import 'screen user/profile_screen.dart';
+import 'providers/auth_provider.dart';
 import 'screen admin/admin_dashboard.dart';
+import 'screen user/activities_screen.dart';
+import 'screen user/announcements_screen.dart';
+import 'screen user/dashboard_screen.dart';
+import 'screen user/login_screen.dart';
+import 'screen user/payments_screen.dart';
+import 'screen user/profile_screen.dart';
+import 'screen user/register_screen.dart';
+import 'screen user/reports_screen.dart';
+import 'screen user/splash_screen.dart';
+import 'screen user/umkm_screen.dart';
 
 void main() {
-  runApp(const MyApp());
+  // Route framework errors to the console
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.dumpErrorToConsole(details);
+  };
+
+  // Show a full-screen error widget with stack trace for easier debugging
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    final exception = details.exceptionAsString();
+    final stack = details.stack?.toString() ?? 'No stack available.';
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        appBar: AppBar(title: const Text('App Error')),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: SelectableText(
+            '''Exception:\n$exception\n\nStack trace:\n$stack''',
+          ),
+        ),
+      ),
+    );
+  };
+
+  // Catch all unhandled errors
+  runZonedGuarded(
+    () {
+      runApp(const MyApp());
+    },
+    (error, stack) {
+      // Ensure the error is visible in console as well
+      debugPrint('Uncaught error: $error');
+      debugPrintStack(stackTrace: stack);
+    },
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -59,9 +95,7 @@ class MyApp extends StatelessWidget {
             ),
           ),
           inputDecorationTheme: InputDecorationTheme(
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 2),

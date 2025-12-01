@@ -1,11 +1,12 @@
 import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/foundation.dart';
 
 class ApiService {
   // --- PERHATIAN: Menggunakan IP untuk akses otomatis ---
-  static const String baseUrl = 'http://192.168.1.5:3000/api';
+  static const String baseUrl = 'http://192.168.56.1:3000/api';
 
   // Helper untuk handle response
   Map<String, dynamic> _handleResponse(http.Response response) {
@@ -400,8 +401,24 @@ class ApiService {
         Uri.parse('$baseUrl/admin/stats'),
         headers: await _getHeaders(),
       );
-      return _handleResponse(response);
+
+      debugPrint('📊 Admin Stats Response Status: ${response.statusCode}');
+      debugPrint('📊 Admin Stats Response Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        // Backend returns flat object: {totalWarga, totalLaporan, totalLaporanPending, ...}
+        // Tidak ada wrapper success/data
+        debugPrint('📊 Stats data: $data');
+        debugPrint('📊 totalLaporanPending: ${data['totalLaporanPending']}');
+
+        return {'success': true, 'data': data};
+      } else {
+        return _handleResponse(response);
+      }
     } catch (e) {
+      debugPrint('❌ Error in getAdminStats: $e');
       return {'success': false, 'message': 'Terjadi kesalahan: $e'};
     }
   }
@@ -423,7 +440,7 @@ class ApiService {
   Future<Map<String, dynamic>> getLaporan() async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/admin/laporan'),
+        Uri.parse('$baseUrl/laporan'),
         headers: await _getHeaders(),
       );
 
@@ -463,7 +480,7 @@ class ApiService {
   ) async {
     try {
       final response = await http.put(
-        Uri.parse('$baseUrl/admin/laporan/$id'),
+        Uri.parse('$baseUrl/laporan/$id'),
         headers: await _getHeaders(),
         body: jsonEncode({'status_laporan': status, 'tanggapan': tanggapan}),
       );
@@ -477,7 +494,7 @@ class ApiService {
   Future<Map<String, dynamic>> deleteLaporan(String id) async {
     try {
       final response = await http.delete(
-        Uri.parse('$baseUrl/admin/laporan/$id'),
+        Uri.parse('$baseUrl/laporan/$id'),
         headers: await _getHeaders(),
       );
       return _handleResponse(response);
@@ -1296,13 +1313,22 @@ class ApiService {
   }) async {
     try {
       final token = await _getToken();
-      final headers = {'Authorization': 'Bearer $token'};
 
       final request = http.MultipartRequest(
         'POST',
         Uri.parse('$baseUrl/surat-pengantar'),
       );
-      request.headers.addAll(headers);
+
+      // Only add Authorization header for multipart, not Content-Type
+      if (token != null) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
+
+      debugPrint('📤 Creating Surat Pengantar...');
+      debugPrint('   URL: $baseUrl/surat-pengantar');
+      debugPrint('   Token: ${token ?? "NONE"}');
+      debugPrint('   Body: $suratData');
+      debugPrint('   Files count: ${files?.length ?? 0}');
 
       // Add text fields
       suratData.forEach((key, value) {
@@ -1319,8 +1345,13 @@ class ApiService {
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
 
+      debugPrint('📥 Response Status: ${response.statusCode}');
+      debugPrint('   Body: ${response.body}');
+
       return _handleResponse(response);
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error in createSuratPengantar: $e');
+      debugPrint('Stack: $stackTrace');
       return {'success': false, 'message': 'Terjadi kesalahan: $e'};
     }
   }
@@ -1328,14 +1359,32 @@ class ApiService {
   // Get Surat Pengantar Admin (Admin - melihat semua pengajuan)
   Future<Map<String, dynamic>> getSuratPengantarAdmin() async {
     try {
+      debugPrint('🔍 Fetching Surat Pengantar Admin...');
+      debugPrint('   URL: $baseUrl/surat-pengantar/admin');
+
+      final headers = await _getHeaders();
+      debugPrint('   Headers: $headers');
+
       final response = await http.get(
         Uri.parse('$baseUrl/surat-pengantar/admin'),
-        headers: await _getHeaders(),
+        headers: headers,
       );
 
+      debugPrint('📡 Response Status: ${response.statusCode}');
+      debugPrint('   Body: ${response.body}');
+
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final transformedData = data
+        final responseBody = jsonDecode(response.body);
+
+        // Handle new response format: {success: true, data: [...]}
+        final List<dynamic> dataList = responseBody is Map
+            ? (responseBody['data'] ?? [])
+            : (responseBody is List ? responseBody : []);
+
+        debugPrint('   Data type: ${dataList.runtimeType}');
+        debugPrint('   Data length: ${dataList.length}');
+
+        final transformedData = dataList
             .map(
               (item) => {
                 'id': item['_id'],
@@ -1355,9 +1404,12 @@ class ApiService {
             .toList();
         return {'success': true, 'data': transformedData};
       } else {
+        debugPrint('❌ Error: ${response.statusCode}');
         return _handleResponse(response);
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('❌ Exception in getSuratPengantarAdmin: $e');
+      debugPrint('Stack: $stackTrace');
       return {'success': false, 'message': 'Terjadi kesalahan: $e'};
     }
   }
