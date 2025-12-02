@@ -55,8 +55,8 @@ mongoose.connect(dbURI, {
   // 6. Jalankan server HANYA JIKA koneksi DB berhasil
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server berjalan di http://localhost:${PORT}`);
-    console.log(`🚀 Akses dari device lain: http://192.168.56.1:${PORT}`);
-    console.log(`🚀 API base URL: http://192.168.56.1:${PORT}/api`);
+    console.log(`🚀 Akses dari device lain: http://172.168.47.116:${PORT}`);
+    console.log(`🚀 API base URL: http://172.168.47.116:${PORT}/api`);
   });
 })
 .catch((err) => {

@@ -1,26 +1,77 @@
 import 'package:flutter/material.dart';
-import '../../services/api_service.dart';
 import 'package:intl/intl.dart';
+import '../../services/api_service.dart';
+
+// --- Painter Geometris (Konsisten dengan Dashboard) ---
+class ModernPatternPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.03)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+
+    for (double i = -size.height; i < size.width * 1.5; i += 40) {
+      canvas.drawLine(
+        Offset(i, -size.height * 0.5),
+        Offset(i - size.width * 0.5, size.height * 1.5),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
 
 class PengumumanPage extends StatefulWidget {
   final VoidCallback? onBackPressed;
-
   const PengumumanPage({super.key, this.onBackPressed});
 
   @override
   State<PengumumanPage> createState() => _PengumumanPageState();
 }
 
-class _PengumumanPageState extends State<PengumumanPage> {
+class _PengumumanPageState extends State<PengumumanPage> with TickerProviderStateMixin {
   final ApiService _apiService = ApiService();
-  List<dynamic> _pengumumanList = [];
+  final TextEditingController _searchController = TextEditingController();
+
+  List<dynamic> _allPengumuman = [];
+  List<dynamic> _filteredPengumuman = [];
   bool _isLoading = true;
-  String _searchQuery = '';
+
+  // Animation & Controllers
+  late TabController _tabController;
+  late AnimationController _headerCtrl;
+  late Animation<double> _headerFade;
+  late Animation<Offset> _headerSlide;
+
+  final List<String> _filters = ['Semua', 'Penting', 'Urgent', 'Normal'];
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 4, vsync: this);
+
+    // Setup Animasi Header
+    _headerCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1000));
+    _headerFade = CurvedAnimation(parent: _headerCtrl, curve: Curves.easeOut);
+    _headerSlide = Tween<Offset>(begin: const Offset(0, -0.4), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _headerCtrl, curve: Curves.easeOutCubic));
+
+    _tabController.addListener(_filterPengumuman);
+    _searchController.addListener(_filterPengumuman);
+
+    _headerCtrl.forward();
     _loadPengumuman();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _headerCtrl.dispose();
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadPengumuman() async {
@@ -29,374 +80,226 @@ class _PengumumanPageState extends State<PengumumanPage> {
       final result = await _apiService.getPengumuman();
       if (result['success'] && mounted) {
         setState(() {
-          _pengumumanList = result['data'] ?? [];
-          _isLoading = false;
+          _allPengumuman = result['data'] ?? [];
+          _filterPengumuman();
         });
       }
     } catch (e) {
-      debugPrint('Error: $e');
+      _showSnackBar('Gagal memuat data: $e', Colors.red);
+    } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _deletePengumuman(String id) async {
-    try {
-      final result = await _apiService.deletePengumuman(id);
-      if (result['success']) {
-        _showSnackBar('Pengumuman berhasil dihapus', isError: false);
-        _loadPengumuman();
-      } else {
-        _showSnackBar(result['message'] ?? 'Gagal menghapus', isError: true);
-      }
-    } catch (e) {
-      _showSnackBar('Error: $e', isError: true);
+  void _filterPengumuman() {
+    final query = _searchController.text.toLowerCase();
+    final filter = _filters[_tabController.index];
+
+    setState(() {
+      _filteredPengumuman = _allPengumuman.where((item) {
+        final judul = item['judul']?.toString().toLowerCase() ?? '';
+        final isi = item['isi']?.toString().toLowerCase() ?? '';
+        final prioritas = item['prioritas']?.toString().toLowerCase() ?? 'normal';
+
+        final matchesQuery = judul.contains(query) || isi.contains(query);
+        
+        if (filter == 'Semua') return matchesQuery;
+        return matchesQuery && prioritas == filter.toLowerCase();
+      }).toList();
+
+      // Sort: Terbaru di atas (asumsi created_at atau tanggal ada)
+      _filteredPengumuman.sort((a, b) {
+        final dateA = DateTime.tryParse(a['created_at'] ?? a['tanggal'] ?? '') ?? DateTime.now();
+        final dateB = DateTime.tryParse(b['created_at'] ?? b['tanggal'] ?? '') ?? DateTime.now();
+        return dateB.compareTo(dateA);
+      });
+    });
+  }
+
+  // --- Helpers ---
+
+  Color _getPriorityColor(String prioritas) {
+    switch (prioritas.toLowerCase()) {
+      case 'urgent': return const Color(0xFFDC2626); // Red
+      case 'penting': return const Color(0xFFF59E0B); // Amber
+      default: return const Color(0xFF10B981); // Emerald/Normal
     }
   }
 
-  void _showSnackBar(String message, {bool isError = false}) {
+  IconData _getPriorityIcon(String prioritas) {
+    switch (prioritas.toLowerCase()) {
+      case 'urgent': return Icons.gpp_maybe_rounded;
+      case 'penting': return Icons.notification_important_rounded;
+      default: return Icons.info_rounded;
+    }
+  }
+
+  void _showSnackBar(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isError ? const Color(0xFFDC2626) : const Color(0xFF10B981),
+        backgroundColor: color,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
       ),
     );
   }
 
-  List<dynamic> get _filteredPengumuman {
-    if (_searchQuery.isEmpty) return _pengumumanList;
-    return _pengumumanList.where((item) {
-      final judul = item['judul']?.toString().toLowerCase() ?? '';
-      final isi = item['isi']?.toString().toLowerCase() ?? '';
-      final query = _searchQuery.toLowerCase();
-      return judul.contains(query) || isi.contains(query);
-    }).toList();
-  }
+  // --- UI Build ---
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildBackToDashboardButton(),
-        _buildHeader(),
-        const SizedBox(height: 24),
-        _buildSearchBar(),
-        const SizedBox(height: 24),
-        _isLoading ? _buildLoadingState() : _buildPengumumanList(),
-      ],
-    );
-  }
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
-  Widget _buildBackToDashboardButton() {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: widget.onBackPressed ?? () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.arrow_back_rounded),
-            style: IconButton.styleFrom(
-              backgroundColor: Colors.white,
-              padding: const EdgeInsets.all(12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: const BorderSide(color: Color(0xFFE2E8F0)),
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showAddEditDialog(),
+        backgroundColor: const Color(0xFF10B981),
+        icon: const Icon(Icons.add_rounded, color: Colors.white),
+        label: const Text('Buat Pengumuman', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+      ),
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _loadPengumuman,
+          color: const Color(0xFF10B981),
+          child: CustomScrollView(
+            slivers: [
+              // Header Gradient
+              SliverToBoxAdapter(
+                child: FadeTransition(
+                  opacity: _headerFade,
+                  child: SlideTransition(
+                    position: _headerSlide,
+                    child: _buildHeader(isMobile),
+                  ),
+                ),
               ),
-            ),
+
+              // Filter Tabs
+              SliverToBoxAdapter(
+                child: Container(
+                  margin: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24, vertical: 8),
+                  height: 45,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(25),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: TabBar(
+                    controller: _tabController,
+                    isScrollable: true,
+                    indicator: BoxDecoration(
+                      color: const Color(0xFF0F172A),
+                      borderRadius: BorderRadius.circular(25),
+                    ),
+                    labelColor: Colors.white,
+                    unselectedLabelColor: const Color(0xFF64748B),
+                    labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    dividerColor: Colors.transparent,
+                    padding: const EdgeInsets.all(4),
+                    tabs: _filters.map((f) => Tab(text: f)).toList(),
+                  ),
+                ),
+              ),
+
+              // List Content
+              _isLoading
+                  ? const SliverFillRemaining(child: Center(child: CircularProgressIndicator(color: Color(0xFF10B981))))
+                  : _filteredPengumuman.isEmpty
+                      ? SliverFillRemaining(child: _buildEmptyState())
+                      : SliverPadding(
+                          padding: EdgeInsets.fromLTRB(isMobile ? 16 : 24, 8, isMobile ? 16 : 24, 80),
+                          sliver: SliverList(
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) => _buildPengumumanCard(_filteredPengumuman[index], index),
+                              childCount: _filteredPengumuman.length,
+                            ),
+                          ),
+                        ),
+            ],
           ),
-          const SizedBox(width: 12),
-          const Text(
-            'Kembali ke Dashboard',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF64748B),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildHeader() {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF10B981), Color(0xFF059669)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF10B981).withOpacity(0.3),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: const Icon(Icons.campaign_rounded, color: Colors.white, size: 24),
-        ),
-        const SizedBox(width: 16),
-        const Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Pengumuman',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF1A202C),
-                  letterSpacing: -0.5,
-                ),
-              ),
-              SizedBox(height: 4),
-              Text(
-                'Kelola pengumuman untuk warga RT',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF64748B),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-        ElevatedButton.icon(
-          onPressed: () => _showAddEditDialog(),
-          icon: const Icon(Icons.add_rounded, size: 20),
-          label: const Text('Buat Baru'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF10B981),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            elevation: 0,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSearchBar() {
+  Widget _buildHeader(bool isMobile) {
     return Container(
+      margin: EdgeInsets.all(isMobile ? 12 : 20),
+      padding: EdgeInsets.all(isMobile ? 20 : 28),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF334155)],
+        ),
+        borderRadius: BorderRadius.circular(isMobile ? 20 : 28),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: const Color(0xFF1E293B).withValues(alpha: 0.4),
+            blurRadius: 40,
+            offset: const Offset(0, 16),
           ),
         ],
       ),
-      child: TextField(
-        onChanged: (value) => setState(() => _searchQuery = value),
-        decoration: InputDecoration(
-          hintText: 'Cari pengumuman...',
-          hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
-          prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B)),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLoadingState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Stack(
         children: [
-          const SizedBox(height: 60),
-          CircularProgressIndicator(
-            color: const Color(0xFF10B981),
-            strokeWidth: 3,
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Memuat data...',
-            style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w500),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPengumumanList() {
-    if (_filteredPengumuman.isEmpty) {
-      return _buildEmptyState();
-    }
-
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: _filteredPengumuman.length,
-      itemBuilder: (context, index) {
-        final item = _filteredPengumuman[index];
-        return _buildPengumumanCard(item, index);
-      },
-    );
-  }
-
-  Widget _buildPengumumanCard(Map<String, dynamic> item, int index) {
-    final judul = item['judul']?.toString() ?? 'Tanpa Judul';
-    final isi = item['isi']?.toString() ?? '';
-    final tanggal = item['tanggal']?.toString() ?? '';
-    final prioritas = item['prioritas']?.toString() ?? 'normal';
-    
-    Color priorityColor;
-    IconData priorityIcon;
-    String priorityLabel;
-    
-    switch (prioritas.toLowerCase()) {
-      case 'urgent':
-        priorityColor = const Color(0xFFDC2626);
-        priorityIcon = Icons.priority_high_rounded;
-        priorityLabel = 'Urgent';
-        break;
-      case 'penting':
-        priorityColor = const Color(0xFFF59E0B);
-        priorityIcon = Icons.warning_rounded;
-        priorityLabel = 'Penting';
-        break;
-      default:
-        priorityColor = const Color(0xFF10B981);
-        priorityIcon = Icons.info_rounded;
-        priorityLabel = 'Normal';
-    }
-
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: Duration(milliseconds: 300 + (index * 50)),
-      curve: Curves.easeOut,
-      builder: (context, value, child) => Opacity(
-        opacity: value,
-        child: Transform.translate(
-          offset: Offset(0, 20 * (1 - value)),
-          child: child,
-        ),
-      ),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          Positioned.fill(child: CustomPaint(painter: ModernPatternPainter())),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: priorityColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(priorityIcon, size: 14, color: priorityColor),
-                            const SizedBox(width: 4),
-                            Text(
-                              priorityLabel,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: priorityColor,
-                              ),
-                            ),
-                          ],
-                        ),
+                  Material(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    child: InkWell(
+                      onTap: widget.onBackPressed ?? () => Navigator.pop(context),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
                       ),
-                      const Spacer(),
-                      Row(
-                        children: [
-                          IconButton(
-                            onPressed: () => _showAddEditDialog(data: item),
-                            icon: const Icon(Icons.edit_rounded),
-                            color: const Color(0xFF3B82F6),
-                            iconSize: 20,
-                            padding: const EdgeInsets.all(8),
-                            constraints: const BoxConstraints(),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            onPressed: () => _showDeleteDialog(item['id']),
-                            icon: const Icon(Icons.delete_rounded),
-                            color: const Color(0xFFDC2626),
-                            iconSize: 20,
-                            padding: const EdgeInsets.all(8),
-                            constraints: const BoxConstraints(),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    judul,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1A202C),
-                      letterSpacing: -0.3,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    isi,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF64748B),
-                      fontWeight: FontWeight.w500,
-                      height: 1.5,
-                    ),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Icon(Icons.calendar_today_rounded, size: 14, color: const Color(0xFF94A3B8)),
-                      const SizedBox(width: 6),
-                      Text(
-                        _formatDate(tanggal),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF94A3B8),
-                          fontWeight: FontWeight.w500,
-                        ),
+                  const SizedBox(width: 16),
+                  const Expanded(
+                    child: Text(
+                      'Papan Pengumuman',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        letterSpacing: -0.5,
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ),
-            ),
-          ],
-        ),
+              const SizedBox(height: 24),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: 'Cari info warga...',
+                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+                    prefixIcon: Icon(Icons.search_rounded, color: Colors.white.withValues(alpha: 0.7)),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -406,204 +309,166 @@ class _PengumumanPageState extends State<PengumumanPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const SizedBox(height: 60),
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: const Color(0xFF10B981).withOpacity(0.1),
+              color: Colors.white,
               shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
             ),
-            child: Icon(
-              Icons.campaign_rounded,
-              size: 64,
-              color: const Color(0xFF10B981).withOpacity(0.5),
-            ),
+            // FIXED: Mengganti ikon yang error
+            child: Icon(Icons.notifications_off_rounded, size: 64, color: Colors.grey[300]),
           ),
           const SizedBox(height: 24),
-          const Text(
-            'Belum Ada Pengumuman',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF1A202C),
-            ),
+          Text(
+            'Belum ada pengumuman',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey[600]),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Klik tombol "Buat Baru" untuk menambah pengumuman',
-            style: TextStyle(
-              fontSize: 14,
-              color: Color(0xFF64748B),
-            ),
+          Text(
+            'Bagikan informasi penting kepada warga',
+            style: TextStyle(fontSize: 14, color: Colors.grey[400]),
           ),
         ],
       ),
     );
   }
 
-  void _showAddEditDialog({Map<String, dynamic>? data}) {
-    final isEdit = data != null;
-    final judulController = TextEditingController(text: data?['judul'] ?? '');
-    final isiController = TextEditingController(text: data?['isi'] ?? '');
-    final penjelasanController = TextEditingController(text: data?['penjelasan'] ?? '');
-    String selectedPrioritas = data?['prioritas'] ?? 'normal';
+  Widget _buildPengumumanCard(Map<String, dynamic> item, int index) {
+    final judul = item['judul']?.toString() ?? 'Tanpa Judul';
+    final isi = item['isi']?.toString() ?? '';
+    final tanggal = _formatDate(item['tanggal'] ?? item['created_at']);
+    final prioritas = item['prioritas']?.toString() ?? 'Normal';
+    
+    final color = _getPriorityColor(prioritas);
+    final icon = _getPriorityIcon(prioritas);
 
-    showDialog(
-      context: context,
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 500),
-          padding: const EdgeInsets.all(24),
-          child: StatefulBuilder(
-            builder: (context, setDialogState) => Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF10B981).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.campaign_rounded, color: Color(0xFF10B981), size: 24),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      isEdit ? 'Edit Pengumuman' : 'Buat Pengumuman Baru',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1A202C),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                TextField(
-                  controller: judulController,
-                  decoration: InputDecoration(
-                    labelText: 'Judul Pengumuman',
-                    hintText: 'Masukkan judul',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    filled: true,
-                    fillColor: const Color(0xFFF8FAFC),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: isiController,
-                  maxLines: 5,
-                  decoration: InputDecoration(
-                    labelText: 'Isi Pengumuman',
-                    hintText: 'Masukkan isi pengumuman',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    filled: true,
-                    fillColor: const Color(0xFFF8FAFC),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: penjelasanController,
-                  maxLines: 3,
-                  decoration: InputDecoration(
-                    labelText: 'Penjelasan Tambahan',
-                    hintText: 'Masukkan penjelasan tambahan (opsional)',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    filled: true,
-                    fillColor: const Color(0xFFF8FAFC),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Prioritas',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF1A202C),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 12,
-                  children: [
-                    _buildPriorityChip('Normal', 'normal', selectedPrioritas, const Color(0xFF10B981), (value) {
-                      setDialogState(() => selectedPrioritas = value);
-                    }),
-                    _buildPriorityChip('Penting', 'penting', selectedPrioritas, const Color(0xFFF59E0B), (value) {
-                      setDialogState(() => selectedPrioritas = value);
-                    }),
-                    _buildPriorityChip('Urgent', 'urgent', selectedPrioritas, const Color(0xFFDC2626), (value) {
-                      setDialogState(() => selectedPrioritas = value);
-                    }),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          side: const BorderSide(color: Color(0xFFE2E8F0)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: Duration(milliseconds: 400 + (index * 50)),
+      curve: Curves.easeOut,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(offset: Offset(0, 20 * (1 - value)), child: child),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 15,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          child: InkWell(
+            onTap: () => _showAddEditDialog(data: item), // Tap to edit for convenience
+            borderRadius: BorderRadius.circular(20),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(14),
                         ),
-                        child: const Text('Batal'),
+                        child: Icon(icon, color: color, size: 24),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          if (judulController.text.isEmpty || isiController.text.isEmpty) {
-                            _showSnackBar('Semua field harus diisi', isError: true);
-                            return;
-                          }
-
-                          try {
-                            final result = isEdit
-                                ? await _apiService.updatePengumuman(
-                                    data['id'],
-                                    judulController.text,
-                                    isiController.text,
-                                    selectedPrioritas,
-                                    penjelasanController.text,
-                                  )
-                                : await _apiService.createPengumuman(
-                                    judulController.text,
-                                    isiController.text,
-                                    selectedPrioritas,
-                                    penjelasanController.text,
-                                  );
-
-                            if (result['success']) {
-                              Navigator.pop(ctx);
-                              _showSnackBar(
-                                isEdit ? 'Pengumuman berhasil diupdate' : 'Pengumuman berhasil dibuat',
-                                isError: false,
-                              );
-                              _loadPengumuman();
-                            } else {
-                              _showSnackBar(result['message'] ?? 'Gagal menyimpan', isError: true);
-                            }
-                          } catch (e) {
-                            _showSnackBar('Error: $e', isError: true);
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF10B981),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: color.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    prioritas.toUpperCase(),
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: color,
+                                    ),
+                                  ),
+                                ),
+                                PopupMenuButton<String>(
+                                  icon: const Icon(Icons.more_horiz_rounded, color: Color(0xFF94A3B8)),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  itemBuilder: (context) => [
+                                    const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit_rounded, size: 18), SizedBox(width: 8), Text('Edit')])),
+                                    const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_rounded, color: Colors.red, size: 18), SizedBox(width: 8), Text('Hapus', style: TextStyle(color: Colors.red))])),
+                                  ],
+                                  onSelected: (val) {
+                                    if (val == 'edit') _showAddEditDialog(data: item);
+                                    if (val == 'delete') _confirmDelete(item['id'].toString());
+                                  },
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              judul,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1E293B),
+                              ),
+                            ),
+                          ],
                         ),
-                        child: Text(isEdit ? 'Update' : 'Simpan'),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    isi,
+                    style: const TextStyle(color: Color(0xFF64748B), height: 1.5),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const Icon(Icons.calendar_today_rounded, size: 14, color: Color(0xFF94A3B8)),
+                      const SizedBox(width: 6),
+                      Text(
+                        tanggal,
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8), fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -611,51 +476,188 @@ class _PengumumanPageState extends State<PengumumanPage> {
     );
   }
 
-  Widget _buildPriorityChip(String label, String value, String selected, Color color, Function(String) onSelect) {
-    final isSelected = selected == value;
-    return FilterChip(
-      label: Text(label),
-      selected: isSelected,
-      onSelected: (bool selected) {
-        if (selected) onSelect(value);
-      },
-      selectedColor: color.withOpacity(0.2),
-      checkmarkColor: color,
-      backgroundColor: Colors.white,
-      side: BorderSide(color: isSelected ? color : const Color(0xFFE2E8F0)),
-      labelStyle: TextStyle(
-        color: isSelected ? color : const Color(0xFF64748B),
-        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+  // --- Input & Actions ---
+
+  void _showAddEditDialog({Map<String, dynamic>? data}) {
+    final isEdit = data != null;
+    final formKey = GlobalKey<FormState>();
+
+    final judulCtrl = TextEditingController(text: data?['judul']);
+    final isiCtrl = TextEditingController(text: data?['isi']);
+    final penjelasanCtrl = TextEditingController(text: data?['penjelasan']);
+    String selectedPrioritas = data?['prioritas']?.toString().toLowerCase() ?? 'normal';
+    // Normalisasi prioritas agar sesuai dengan ChoiceChip values
+    if (!['normal', 'penting', 'urgent'].contains(selectedPrioritas)) {
+      selectedPrioritas = 'normal';
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.85,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
+        child: StatefulBuilder(
+          builder: (context, setModalState) {
+            return Form(
+              key: formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40, height: 4,
+                      decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    isEdit ? 'Edit Pengumuman' : 'Buat Pengumuman',
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                  ),
+                  const SizedBox(height: 24),
+                  Expanded(
+                    child: ListView(
+                      children: [
+                        TextFormField(
+                          controller: judulCtrl,
+                          decoration: _inputDecor('Judul', Icons.title_rounded),
+                          validator: (v) => v!.isEmpty ? 'Wajib diisi' : null,
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: isiCtrl,
+                          maxLines: 5,
+                          decoration: _inputDecor('Isi Pengumuman', Icons.description_rounded),
+                          validator: (v) => v!.isEmpty ? 'Wajib diisi' : null,
+                        ),
+                        const SizedBox(height: 16),
+                        const Text('Prioritas', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 12,
+                          children: ['normal', 'penting', 'urgent'].map((p) {
+                            final isSelected = selectedPrioritas == p;
+                            final color = _getPriorityColor(p);
+                            return ChoiceChip(
+                              label: Text(p[0].toUpperCase() + p.substring(1)),
+                              selected: isSelected,
+                              onSelected: (val) => setModalState(() => selectedPrioritas = p),
+                              selectedColor: color.withValues(alpha: 0.2),
+                              backgroundColor: Colors.white,
+                              labelStyle: TextStyle(
+                                color: isSelected ? color : const Color(0xFF64748B),
+                                fontWeight: FontWeight.bold,
+                              ),
+                              side: BorderSide(color: isSelected ? color : const Color(0xFFE2E8F0)),
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: penjelasanCtrl,
+                          decoration: _inputDecor('Penjelasan Tambahan (Opsional)', Icons.info_outline_rounded),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () async {
+                      if (formKey.currentState!.validate()) {
+                        Navigator.pop(context);
+                        
+                        dynamic result;
+                        if (isEdit) {
+                          // Gunakan argumen terpisah sesuai API Service
+                          result = await _apiService.updatePengumuman(
+                            data!['id'].toString(),
+                            judulCtrl.text,
+                            isiCtrl.text,
+                            selectedPrioritas,
+                            penjelasanCtrl.text
+                          );
+                        } else {
+                          // Gunakan argumen terpisah sesuai API Service
+                          result = await _apiService.createPengumuman(
+                            judulCtrl.text,
+                            isiCtrl.text,
+                            selectedPrioritas,
+                            penjelasanCtrl.text
+                          );
+                        }
+
+                        if (result['success']) {
+                          _showSnackBar(isEdit ? 'Berhasil diperbarui' : 'Berhasil dibuat', Colors.green);
+                          _loadPengumuman();
+                        } else {
+                          _showSnackBar(result['message'] ?? 'Gagal menyimpan', Colors.red);
+                        }
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF10B981),
+                      minimumSize: const Size(double.infinity, 50),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      elevation: 0,
+                    ),
+                    child: Text(isEdit ? 'Simpan Perubahan' : 'Terbitkan', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
 
-  void _showDeleteDialog(String id) {
+  void _confirmDelete(String id) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Hapus Pengumuman?'),
-        content: const Text('Pengumuman yang dihapus tidak dapat dikembalikan.'),
+        content: const Text('Data yang dihapus tidak dapat dikembalikan.'),
         actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _deletePengumuman(id);
+            onPressed: () async {
+              Navigator.pop(context);
+              final result = await _apiService.deletePengumuman(id);
+              if (result['success']) {
+                _showSnackBar('Pengumuman dihapus', Colors.green);
+                _loadPengumuman();
+              } else {
+                _showSnackBar('Gagal menghapus', Colors.red);
+              }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
-            child: const Text('Hapus'),
+            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
   }
 
-  String _formatDate(String date) {
+  InputDecoration _inputDecor(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, color: const Color(0xFF94A3B8)),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+      filled: true,
+      fillColor: const Color(0xFFF8FAFC),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    );
+  }
+
+  String _formatDate(String? date) {
+    if (date == null || date.isEmpty) return 'Tanggal tidak tersedia';
     try {
       final dateTime = DateTime.parse(date);
       return DateFormat('dd MMM yyyy, HH:mm', 'id_ID').format(dateTime);

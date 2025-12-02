@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import 'dart:math' as math;
+import 'package:lottie/lottie.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -229,9 +231,9 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                             Colors.white,
                           ],
                         ).createShader(bounds),
-                        child: const Text(
+                        child: Text(
                           'Warga Connect',
-                          style: TextStyle(
+                          style: GoogleFonts.poppins(
                             fontSize: 38,
                             fontWeight: FontWeight.w800,
                             color: Colors.white,
@@ -274,7 +276,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                             const SizedBox(width: 8),
                             Text(
                               'Sistem Informasi RT/RW',
-                              style: TextStyle(
+                              style: GoogleFonts.poppins(
                                 fontSize: 13,
                                 color: Colors.white.withOpacity(0.9),
                                 fontWeight: FontWeight.w600,
@@ -322,7 +324,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                           const SizedBox(height: 16),
                           Text(
                             'Mempersiapkan aplikasi...',
-                            style: TextStyle(
+                            style: GoogleFonts.poppins(
                               color: Colors.white.withOpacity(0.7),
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
@@ -363,7 +365,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                       ),
                       child: Text(
                         'Version 1.0.0',
-                        style: TextStyle(
+                        style: GoogleFonts.poppins(
                           color: Colors.white.withOpacity(0.6),
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -374,7 +376,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                     const SizedBox(height: 8),
                     Text(
                       'Powered by Flutter',
-                      style: TextStyle(
+                      style: GoogleFonts.poppins(
                         color: Colors.white.withOpacity(0.4),
                         fontSize: 10,
                         fontWeight: FontWeight.w500,
@@ -392,123 +394,10 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   }
 
   Widget _buildLogo() {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        // Outer glow ring
-        Container(
-          width: 160,
-          height: 160,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: RadialGradient(
-              colors: [
-                Colors.white.withOpacity(0.0),
-                Colors.white.withOpacity(0.05),
-                Colors.white.withOpacity(0.0),
-              ],
-              stops: const [0.0, 0.5, 1.0],
-            ),
-          ),
-        ),
-        
-        // Main logo container
-        Container(
-          width: 130,
-          height: 130,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white.withOpacity(0.2),
-                Colors.white.withOpacity(0.1),
-              ],
-            ),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.3),
-              width: 2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.3),
-                blurRadius: 30,
-                offset: const Offset(0, 15),
-                spreadRadius: -5,
-              ),
-              BoxShadow(
-                color: Colors.white.withOpacity(0.1),
-                blurRadius: 20,
-                offset: const Offset(0, -5),
-                spreadRadius: -5,
-              ),
-            ],
-          ),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // Inner gradient
-              Container(
-                margin: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      Colors.white.withOpacity(0.15),
-                      Colors.transparent,
-                    ],
-                    stops: const [0.0, 1.0],
-                  ),
-                ),
-              ),
-              
-              // Icon
-              Icon(
-                Icons.home_rounded,
-                size: 60,
-                color: Colors.white.withOpacity(0.95),
-                shadows: [
-                  Shadow(
-                    color: Colors.black.withOpacity(0.4),
-                    offset: const Offset(0, 4),
-                    blurRadius: 12,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        
-        // Rotating ring
-        AnimatedBuilder(
-          animation: _shimmerController,
-          builder: (context, child) {
-            return Transform.rotate(
-              angle: _shimmerController.value * 2 * math.pi,
-              child: Container(
-                width: 150,
-                height: 150,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.transparent,
-                    width: 2,
-                  ),
-                  gradient: SweepGradient(
-                    colors: [
-                      Colors.white.withOpacity(0.0),
-                      Colors.white.withOpacity(0.3),
-                      Colors.white.withOpacity(0.0),
-                    ],
-                    stops: const [0.0, 0.5, 1.0],
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ],
+    return Container(
+      width: 160,
+      height: 160,
+      child: Lottie.asset('asset/logo splash screen.json'),
     );
   }
 }
