@@ -116,52 +116,59 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
   }
 
   @override
-  Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isMobile = screenWidth < 600;
+Widget build(BuildContext context) {
+  final screenWidth = MediaQuery.of(context).size.width;
+  final isMobile = screenWidth < 600;
 
+  // --- PERBAIKAN UTAMA ---
+  // Jika bukan di dashboard (index 0), langsung tampilkan konten tanpa ScrollView
+  if (_selectedIndex != 0) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
-        child: RefreshIndicator(
-          // --- PERUBAHAN ---
-          // Mengganti onRefresh ke fungsi baru
-          onRefresh: _loadDashboardData,
-          color: const Color(0xFF2D3748),
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-               if (_selectedIndex == 0)
-              SliverToBoxAdapter(
-                child: FadeTransition(
-                  opacity: _headerFadeAnimation,
-                  child: SlideTransition(
-                    position: _headerSlideAnimation,
-                    child: _buildModernHeader(context),
-                  ),
-                ),
-              ),
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(
-                  isMobile ? 12 : 24,
-                  isMobile ? 12 : 24,
-                  isMobile ? 12 : 24,
-                  24
-                ),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                    _selectedIndex == 0
-                        ? _buildDashboardContent()
-                        : _buildContentForIndex(_selectedIndex),
-                  ]),
-                ),
-              ),
-            ],
-          ),
-        ),
+        child: _buildContentForIndex(_selectedIndex),
       ),
     );
   }
+
+  // --- Untuk Dashboard (index 0), gunakan ScrollView seperti biasa ---
+  return Scaffold(
+    backgroundColor: const Color(0xFFF8FAFC),
+    body: SafeArea(
+      child: RefreshIndicator(
+        onRefresh: _loadDashboardData,
+        color: const Color(0xFF2D3748),
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: FadeTransition(
+                opacity: _headerFadeAnimation,
+                child: SlideTransition(
+                  position: _headerSlideAnimation,
+                  child: _buildModernHeader(context),
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                isMobile ? 12 : 24,
+                isMobile ? 12 : 24,
+                isMobile ? 12 : 24,
+                24
+              ),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  _buildDashboardContent(),
+                ]),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
 
   Widget _buildModernHeader(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -415,7 +422,7 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
                               child: _buildQuickStat(
                                 icon: Icons.report_rounded,
                                 label: 'Laporan Pending',
-                                value: '${_stats?['totalLaporanPending'] ?? 0}',
+                                value: '${_stats?['totalLaporan'] ?? 0}',
                                 color: const Color(0xFFDC2626),
                               ),
                             ),

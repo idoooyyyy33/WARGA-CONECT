@@ -6,7 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // --- PERHATIAN: Menggunakan IP untuk akses otomatis ---
-  static const String baseUrl = 'http://192.168.56.1:3000/api';
+  // Untuk emulator Android gunakan 192.168.1.26, untuk iOS simulator gunakan localhost
+  static const String baseUrl = 'http://192.168.1.26:3000/api';
 
   // Helper untuk handle response
   Map<String, dynamic> _handleResponse(http.Response response) {
@@ -47,7 +48,12 @@ class ApiService {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('token');
   }
-
+// DEBUG METHOD - Tambahkan di class ApiService
+Future<String?> getTokenDebug() async {
+  final token = await _getToken();
+  debugPrint('🔍 Debug Token: $token');
+  return token;
+}
   // Save token to storage
   Future<void> _saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
@@ -70,37 +76,57 @@ class ApiService {
     };
   }
 
-  // Login
-  Future<Map<String, dynamic>> login(String email, String password) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/users/login'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email, 'password': password}),
-      );
+ // Login - PERBAIKAN
+Future<Map<String, dynamic>> login(String email, String password) async {
+  try {
+    debugPrint('📤 Login Request: $email');
+    
+    final response = await http.post(
+      Uri.parse('$baseUrl/users/login'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email, 'password': password}),
+    );
 
-      final data = jsonDecode(response.body);
+    debugPrint('📥 Login Response Status: ${response.statusCode}');
+    debugPrint('   Body: ${response.body}');
 
-      if (response.statusCode == 200) {
-        // Simpan user data ke SharedPreferences
-        if (data['user'] != null) {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('user_data', jsonEncode(data['user']));
-        }
+    final data = jsonDecode(response.body);
 
-        // Simpan token sebagai user ID (karena backend tidak menggunakan JWT)
-        if (data['user'] != null && data['user']['_id'] != null) {
-          await _saveToken(data['user']['_id']);
-        }
-
-        return {'success': true, 'data': data};
-      } else {
-        return {'success': false, 'message': data['message'] ?? 'Login gagal'};
+    if (response.statusCode == 200) {
+      debugPrint('✅ Login Success');
+      
+      // Simpan user data ke SharedPreferences
+      if (data['user'] != null) {
+        final prefs = await SharedPreferences.getInstance();
+        final userDataString = jsonEncode(data['user']);
+        await prefs.setString('user_data', userDataString);
+        debugPrint('💾 User data saved: ${data['user']['email']}');
+        debugPrint('   Role: ${data['user']['role']}');
       }
-    } catch (e) {
-      return {'success': false, 'message': 'Terjadi kesalahan: $e'};
+
+      // Simpan token sebagai user ID
+      if (data['user'] != null && data['user']['_id'] != null) {
+        final userId = data['user']['_id'];
+        await _saveToken(userId);
+        debugPrint('🔑 Token saved: $userId');
+        
+        // VERIFY token tersimpan
+        final savedToken = await _getToken();
+        debugPrint('✅ Verified saved token: $savedToken');
+      } else {
+        debugPrint('⚠️ WARNING: User ID not found in response!');
+      }
+
+      return {'success': true, 'data': data};
+    } else {
+      return {'success': false, 'message': data['message'] ?? 'Login gagal'};
     }
+  } catch (e, stack) {
+    debugPrint('❌ Login Error: $e');
+    debugPrint('Stack: $stack');
+    return {'success': false, 'message': 'Terjadi kesalahan: $e'};
   }
+}
 
   // Register
   Future<Map<String, dynamic>> register(Map<String, dynamic> userData) async {
@@ -1268,9 +1294,9 @@ class ApiService {
     }
   }
 
-  // ==================== SURAT PENGANTAR METHODS ====================
+ // ==================== SURAT PENGANTAR METHODS ====================
 
-  // Get Surat Pengantar (User - melihat pengajuannya sendiri)
+  // 1. Get Surat Pengantar (User - melihat pengajuannya sendiri)
   Future<Map<String, dynamic>> getSuratPengantar() async {
     try {
       final response = await http.get(
@@ -1280,23 +1306,34 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final transformedData = data
-            .map(
-              (item) => {
-                'id': item['_id'],
-                'jenis_surat': item['jenis_surat'] ?? 'Tidak diketahui',
-                'keperluan': item['keperluan'] ?? '',
-                'keterangan': item['keterangan'] ?? '',
-                'status_pengajuan': item['status_pengajuan'] ?? 'Diajukan',
-                'tanggapan_admin': item['tanggapan_admin'] ?? '',
-                'file_surat': item['file_surat'] ?? '',
-                'tanggal_pengajuan': item['createdAt'] != null
-                    ? DateTime.parse(item['createdAt']).toString().split(' ')[0]
-                    : '',
-                'nama_pengaju': item['pengaju_id']?['nama_lengkap'] ?? 'Anonim',
-              },
-            )
-            .toList();
+        
+        // Pastikan data adalah List
+        List<dynamic> listData = [];
+        if (data is List) {
+          listData = data;
+        } else if (data is Map && data['data'] is List) {
+          listData = data['data'];
+        }
+
+        final transformedData = listData.map((item) {
+          return {
+            'id': item['_id'], // Mapping _id ke id
+            'jenis_surat': item['jenis_surat'] ?? 'Tidak diketahui',
+            'keperluan': item['keperluan'] ?? '',
+            'keterangan': item['keterangan'] ?? '',
+            'status_pengajuan': item['status_pengajuan'] ?? 'Diajukan',
+            'tanggapan_admin': item['tanggapan_admin'] ?? '',
+            'file_surat': item['file_surat'] ?? '',
+            'tanggal_pengajuan': item['createdAt'] != null
+                ? DateTime.parse(item['createdAt']).toString().split(' ')[0]
+                : '',
+            // Safe access untuk user side
+            'nama_pengaju': (item['pengaju_id'] is Map) 
+                ? (item['pengaju_id']['nama_lengkap'] ?? 'Saya') 
+                : 'Saya',
+          };
+        }).toList();
+
         return {'success': true, 'data': transformedData};
       } else {
         return _handleResponse(response);
@@ -1306,29 +1343,21 @@ class ApiService {
     }
   }
 
-  // Create Surat Pengantar (User) - UPDATED FOR FILE UPLOAD
+  // 2. Create Surat Pengantar (User)
   Future<Map<String, dynamic>> createSuratPengantar(
     Map<String, dynamic> suratData, {
     List<http.MultipartFile>? files,
   }) async {
     try {
       final token = await _getToken();
-
       final request = http.MultipartRequest(
         'POST',
         Uri.parse('$baseUrl/surat-pengantar'),
       );
 
-      // Only add Authorization header for multipart, not Content-Type
       if (token != null) {
         request.headers['Authorization'] = 'Bearer $token';
       }
-
-      debugPrint('📤 Creating Surat Pengantar...');
-      debugPrint('   URL: $baseUrl/surat-pengantar');
-      debugPrint('   Token: ${token ?? "NONE"}');
-      debugPrint('   Body: $suratData');
-      debugPrint('   Files count: ${files?.length ?? 0}');
 
       // Add text fields
       suratData.forEach((key, value) {
@@ -1345,76 +1374,74 @@ class ApiService {
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
 
-      debugPrint('📥 Response Status: ${response.statusCode}');
-      debugPrint('   Body: ${response.body}');
-
       return _handleResponse(response);
-    } catch (e, stackTrace) {
+    } catch (e) {
       debugPrint('❌ Error in createSuratPengantar: $e');
-      debugPrint('Stack: $stackTrace');
       return {'success': false, 'message': 'Terjadi kesalahan: $e'};
     }
   }
 
-  // Get Surat Pengantar Admin (Admin - melihat semua pengajuan)
+  // 3. Get Surat Pengantar Admin (Admin - melihat semua pengajuan)
+  // PERBAIKAN UTAMA ADA DI SINI AGAR TIDAK CRASH
   Future<Map<String, dynamic>> getSuratPengantarAdmin() async {
     try {
       debugPrint('🔍 Fetching Surat Pengantar Admin...');
-      debugPrint('   URL: $baseUrl/surat-pengantar/admin');
-
       final headers = await _getHeaders();
-      debugPrint('   Headers: $headers');
-
+      
       final response = await http.get(
         Uri.parse('$baseUrl/surat-pengantar/admin'),
         headers: headers,
       );
 
-      debugPrint('📡 Response Status: ${response.statusCode}');
-      debugPrint('   Body: ${response.body}');
-
       if (response.statusCode == 200) {
         final responseBody = jsonDecode(response.body);
 
-        // Handle new response format: {success: true, data: [...]}
-        final List<dynamic> dataList = responseBody is Map
-            ? (responseBody['data'] ?? [])
+        // 1. Ambil List data dengan aman
+        final List<dynamic> rawList = responseBody is Map
+            ? (responseBody['data'] is List ? responseBody['data'] : [])
             : (responseBody is List ? responseBody : []);
 
-        debugPrint('   Data type: ${dataList.runtimeType}');
-        debugPrint('   Data length: ${dataList.length}');
+        // 2. Transformasi Data (Mapping)
+        final transformedData = rawList.map((item) {
+          
+          // --- LOGIKA ANTI CRASH UNTUK NAMA PENGAJU ---
+          String namaPengaju = 'Anonim';
+          String emailPengaju = '-';
 
-        final transformedData = dataList
-            .map(
-              (item) => {
-                'id': item['_id'],
-                'jenis_surat': item['jenis_surat'] ?? 'Tidak diketahui',
-                'keperluan': item['keperluan'] ?? '',
-                'keterangan': item['keterangan'] ?? '',
-                'status_pengajuan': item['status_pengajuan'] ?? 'Diajukan',
-                'tanggapan_admin': item['tanggapan_admin'] ?? '',
-                'file_surat': item['file_surat'] ?? '',
-                'tanggal_pengajuan': item['createdAt'] != null
-                    ? DateTime.parse(item['createdAt']).toString().split(' ')[0]
-                    : '',
-                'nama_pengaju': item['pengaju_id']?['nama_lengkap'] ?? 'Anonim',
-                'email_pengaju': item['pengaju_id']?['email'] ?? '',
-              },
-            )
-            .toList();
+          // Cek apakah pengaju_id itu Object (Map) atau cuma String ID atau Null
+          if (item['pengaju_id'] != null && item['pengaju_id'] is Map) {
+            namaPengaju = item['pengaju_id']['nama_lengkap'] ?? 'Anonim';
+            emailPengaju = item['pengaju_id']['email'] ?? '-';
+          } 
+          // --------------------------------------------
+
+          return {
+            'id': item['_id'], // PENTING: Ubah _id jadi id
+            'jenis_surat': item['jenis_surat'] ?? 'Tidak diketahui',
+            'keperluan': item['keperluan'] ?? '-',
+            'keterangan': item['keterangan'] ?? '-',
+            'status_pengajuan': item['status_pengajuan'] ?? 'Diajukan',
+            'tanggapan_admin': item['tanggapan_admin'] ?? '',
+            'file_surat': item['file_surat'] ?? '',
+            'tanggal_pengajuan': item['createdAt'] != null
+                ? DateTime.parse(item['createdAt']).toString().split(' ')[0]
+                : '-',
+            'nama_pengaju': namaPengaju, // Pakai variabel yang sudah diamankan
+            'email_pengaju': emailPengaju,
+          };
+        }).toList();
+
         return {'success': true, 'data': transformedData};
       } else {
-        debugPrint('❌ Error: ${response.statusCode}');
         return _handleResponse(response);
       }
-    } catch (e, stackTrace) {
+    } catch (e) {
       debugPrint('❌ Exception in getSuratPengantarAdmin: $e');
-      debugPrint('Stack: $stackTrace');
       return {'success': false, 'message': 'Terjadi kesalahan: $e'};
     }
   }
 
-  // Update Status Surat Pengantar (Admin)
+  // 4. Update Status Surat Pengantar (Admin)
   Future<Map<String, dynamic>> updateStatusSuratPengantar(
     String id,
     String status,
@@ -1442,7 +1469,7 @@ class ApiService {
     }
   }
 
-  // Delete Surat Pengantar
+  // 5. Delete Surat Pengantar
   Future<Map<String, dynamic>> deleteSuratPengantar(String id) async {
     try {
       final response = await http.delete(

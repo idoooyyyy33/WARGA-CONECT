@@ -1,614 +1,602 @@
+// File: lib/screens/surat_pengantar_admin.dart
 import 'package:flutter/material.dart';
-import 'package:warga_conect_pt2/services/api_service.dart';
+import '../services/api_service.dart';
 
 class SuratPengantarAdminScreen extends StatefulWidget {
-  final VoidCallback? onBackPressed;
-
-  const SuratPengantarAdminScreen({super.key, this.onBackPressed});
+  final VoidCallback onBackPressed;
+  
+  const SuratPengantarAdminScreen({
+    super.key,
+    required this.onBackPressed,
+  });
 
   @override
-  State<SuratPengantarAdminScreen> createState() =>
-      _SuratPengantarAdminScreenState();
+  State<SuratPengantarAdminScreen> createState() => _SuratPengantarAdminScreenState();
 }
 
-class _SuratPengantarAdminScreenState extends State<SuratPengantarAdminScreen> {
+class _SuratPengantarAdminScreenState extends State<SuratPengantarAdminScreen>
+    with SingleTickerProviderStateMixin {
   final ApiService _apiService = ApiService();
-  List<dynamic> _suratPengantar = [];
+  List<dynamic> _allSurat = [];
+  List<dynamic> _filteredSurat = [];
   bool _isLoading = false;
+  late TabController _tabController;
+
+  final List<String> _statusFilters = [
+    'Semua',
+    'Diajukan',
+    'Diproses',
+    'Disetujui',
+    'Ditolak'
+  ];
 
   @override
   void initState() {
     super.initState();
-    // Defensive: capture any errors from loading so they don't crash the UI silently
-    _loadSuratPengantar().catchError((e, stack) {
-      debugPrint('❌ Error in initState _loadSuratPengantar: $e');
-      debugPrint('Stack: $stack');
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal memuat data: $e'),
-            backgroundColor: Colors.red.shade400,
-          ),
+    _tabController = TabController(length: _statusFilters.length, vsync: this);
+    _tabController.addListener(_onTabChanged);
+    _loadSurat();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _onTabChanged() {
+    _filterByStatus(_statusFilters[_tabController.index]);
+  }
+
+  Future<void> _loadSurat() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+    try {
+      final response = await _apiService.getSuratPengantarAdmin();
+      
+      if (!mounted) return;
+
+      if (response['success']) {
+        setState(() {
+          _allSurat = response['data'] ?? []; // Defensive: pastikan tidak null
+          _filterByStatus(_statusFilters[_tabController.index]);
+        });
+      } else {
+        _showSnackBar(
+          response['message'] ?? 'Gagal memuat data',
+          Colors.red,
         );
+      }
+    } catch (e) {
+       debugPrint("Error UI Load: $e");
+       if(mounted) {
+         _showSnackBar('Terjadi kesalahan aplikasi', Colors.red);
+       }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _filterByStatus(String status) {
+    setState(() {
+      if (status == 'Semua') {
+        _filteredSurat = List.from(_allSurat);
+      } else {
+        _filteredSurat = _allSurat.where((surat) {
+          // FIX: Ambil status dengan aman (default 'diajukan' jika null)
+          final statusSurat = surat['status_pengajuan']?.toString() ?? 'diajukan';
+          return statusSurat.toLowerCase() == status.toLowerCase();
+        }).toList();
       }
     });
   }
 
-  Future<void> _loadSuratPengantar() async {
-    setState(() => _isLoading = true);
-
-    debugPrint('🔍 Loading Surat Pengantar for Admin...');
-
-    final result = await _apiService.getSuratPengantarAdmin();
-
-    debugPrint('📥 Result success: ${result['success']}');
-    debugPrint('   Message: ${result['message']}');
-    debugPrint('   Data length: ${result['data']?.length ?? 0}');
-
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-        if (result['success']) {
-          _suratPengantar = result['data'] is List ? result['data'] : [];
-          debugPrint('✅ Loaded ${_suratPengantar.length} surat pengantar');
-        } else {
-          debugPrint('❌ Error: ${result['message']}');
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                result['message'] ?? 'Gagal memuat surat pengantar',
-              ),
-              backgroundColor: Colors.red.shade400,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-      });
+  // FIX: Menangani input null agar tidak crash
+  Color _getStatusColor(String? status) {
+    switch ((status ?? 'diajukan').toLowerCase()) {
+      case 'disetujui':
+        return Colors.green;
+      case 'ditolak':
+        return Colors.red;
+      case 'diproses':
+        return Colors.orange;
+      default:
+        return Colors.blue;
     }
   }
 
-  void _showUpdateStatusDialog(dynamic surat) {
-    final tanggapanController = TextEditingController(
-      text: surat['tanggapan_admin'] ?? '',
-    );
-    String selectedStatus = surat['status_pengajuan'] ?? 'Diajukan';
+  // FIX: Menangani input null agar tidak crash
+  IconData _getStatusIcon(String? status) {
+    switch ((status ?? 'diajukan').toLowerCase()) {
+      case 'disetujui':
+        return Icons.check_circle;
+      case 'ditolak':
+        return Icons.cancel;
+      case 'diproses':
+        return Icons.hourglass_empty;
+      default:
+        return Icons.pending;
+    }
+  }
 
-    showModalBottomSheet(
+  void _showDetailDialog(Map<String, dynamic> surat) {
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => Container(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(32),
-              topRight: Radius.circular(32),
-            ),
-          ),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Update Status Pengajuan',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF1F2937),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Pengaju: ${surat['nama_pengaju'] ?? 'Tidak diketahui'}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF6B7280),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Status Dropdown
-                Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF9FAFB),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: selectedStatus,
-                      isExpanded: true,
-                      icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                      items: ['Diajukan', 'Diproses', 'Disetujui', 'Ditolak']
-                          .map((String value) {
-                            return DropdownMenuItem<String>(
-                              value: value,
-                              child: Text(value),
-                            );
-                          })
-                          .toList(),
-                      onChanged: (String? newValue) {
-                        setModalState(() {
-                          selectedStatus = newValue!;
-                        });
-                      },
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Tanggapan Field
-                TextField(
-                  controller: tanggapanController,
-                  maxLines: 4,
-                  decoration: InputDecoration(
-                    labelText: 'Tanggapan Admin',
-                    hintText: 'Berikan tanggapan atau alasan keputusan',
-                    filled: true,
-                    fillColor: const Color(0xFFF9FAFB),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Submit Button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      Navigator.pop(context);
-
-                      final result = await _apiService.updateStatusSuratPengantar(
-                        surat['id'],
-                        selectedStatus,
-                        tanggapanController.text,
-                        null, // fileUrl - bisa ditambahkan nanti untuk upload file
-                      );
-
-                      if (mounted) {
-                        if (result['success']) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Status berhasil diperbarui'),
-                              backgroundColor: Colors.green,
-                            ),
-                          );
-                          _loadSuratPengantar();
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                result['message'] ?? 'Gagal memperbarui status',
-                              ),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF3B82F6),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: const Text(
-                      'Update Status',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+      builder: (context) => _SuratDetailDialog(
+        surat: surat,
+        onStatusUpdated: _loadSurat,
       ),
+    );
+  }
+
+  void _showDeleteConfirmation(Map<String, dynamic> surat) {
+    // FIX: Gunakan 'id' bukan '_id' (sesuai hasil mapping API Service)
+    final String suratId = surat['id']?.toString() ?? '';
+    final String jenisSurat = surat['jenis_surat'] ?? 'Surat';
+    final String namaPengaju = surat['nama_pengaju'] ?? 'Pengguna';
+
+    if (suratId.isEmpty) {
+      _showSnackBar('ID Surat tidak valid', Colors.red);
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hapus Pengajuan'),
+        content: Text(
+          'Apakah Anda yakin ingin menghapus pengajuan "$jenisSurat" dari $namaPengaju?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context); // Tutup dialog dulu
+              
+              final response = await _apiService.deleteSuratPengantar(suratId);
+              
+              if (!mounted) return;
+              
+              if (response['success']) {
+                _showSnackBar('Pengajuan berhasil dihapus', Colors.green);
+                _loadSurat(); // Reload data
+              } else {
+                _showSnackBar(
+                  response['message'] ?? 'Gagal menghapus',
+                  Colors.red,
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Hapus', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: color),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    try {
-      return Scaffold(
-        backgroundColor: const Color(0xFFF9FAFB),
-        body: SafeArea(
-          child: Column(
-            children: [
-              // Header
-              Container(
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFB923C), Color(0xFFF97316)],
-                  ),
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(32),
-                    bottomRight: Radius.circular(32),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFFB923C).withOpacity(0.3),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-                  child: Column(
-                    children: [
-                      Row(
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: widget.onBackPressed,
+        ),
+        title: const Text('Kelola Surat Pengantar'),
+        backgroundColor: Colors.green.shade700,
+        foregroundColor: Colors.white,
+        bottom: TabBar(
+          controller: _tabController,
+          isScrollable: true,
+          indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          tabs: _statusFilters.map((status) => Tab(
+            text: status,
+            icon: _buildTabBadge(status),
+          )).toList(),
+        ),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _loadSurat,
+              child: _filteredSurat.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Material(
-                            color: Colors.white.withOpacity(0.0),
-                            borderRadius: BorderRadius.circular(12),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(12),
-                              onTap: () => Navigator.pop(context),
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.12),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Icon(
-                                  Icons.arrow_back_rounded,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
+                          Icon(
+                            Icons.description_outlined,
+                            size: 64,
+                            color: Colors.grey.shade400,
                           ),
-                          const SizedBox(width: 16),
-                          const Text(
-                            'Kelola Surat Pengantar',
+                          const SizedBox(height: 16),
+                          Text(
+                            'Tidak ada pengajuan surat',
                             style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                              letterSpacing: -0.5,
+                              fontSize: 16,
+                              color: Colors.grey.shade600,
                             ),
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Content
-              Expanded(
-                child: _isLoading
-                    ? const Center(
-                        child: CircularProgressIndicator(
-                          color: Color(0xFFFB923C),
-                        ),
-                      )
-                    : _suratPengantar.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.description_outlined,
-                              size: 80,
-                              color: Colors.grey[300],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Belum ada pengajuan surat',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey[600],
-                                fontWeight: FontWeight.w500,
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _filteredSurat.length,
+                      itemBuilder: (context, index) {
+                        final surat = _filteredSurat[index];
+                        // FIX: Ambil data dengan aman (??)
+                        final status = surat['status_pengajuan'] as String?;
+                        
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          elevation: 2,
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: _getStatusColor(status).withOpacity(0.2),
+                              child: Icon(
+                                _getStatusIcon(status),
+                                color: _getStatusColor(status),
                               ),
                             ),
-                          ],
-                        ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: _loadSuratPengantar,
-                        child: ListView.builder(
-                          padding: const EdgeInsets.all(20),
-                          itemCount: _suratPengantar.length,
-                          itemBuilder: (context, index) {
-                            final surat = _suratPengantar[index];
-                            return _buildSuratCard(surat);
-                          },
-                        ),
-                      ),
-              ),
-            ],
-          ),
-        ),
-      );
-    } catch (e, stack) {
-      // If a synchronous build error happens, show it on-screen instead of blank
-      debugPrint('❌ Build error in SuratPengantarAdminScreen: $e');
-      debugPrint('Stack: $stack');
-      return Scaffold(
-        appBar: AppBar(title: const Text('Error')),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: SelectableText('Build error: $e\n\n$stack'),
-        ),
-      );
-    }
+                            title: Text(
+                              surat['jenis_surat'] ?? 'Tanpa Judul',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 4),
+                                Text('Pengaju: ${surat['nama_pengaju'] ?? 'Tidak diketahui'}'),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Keperluan: ${surat['keperluan'] ?? '-'}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: _getStatusColor(status).withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        status ?? 'Diajukan',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: _getStatusColor(status),
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      surat['tanggal_pengajuan'] ?? '-',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            trailing: PopupMenuButton(
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                  value: 'detail',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.visibility, size: 20),
+                                      SizedBox(width: 8),
+                                      Text('Lihat Detail'),
+                                    ],
+                                  ),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'delete',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.delete, size: 20),
+                                      SizedBox(width: 8),
+                                      Text('Hapus'),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                              onSelected: (value) {
+                                if (value == 'detail') {
+                                  _showDetailDialog(surat);
+                                } else if (value == 'delete') {
+                                  _showDeleteConfirmation(surat);
+                                }
+                              },
+                            ),
+                            onTap: () => _showDetailDialog(surat),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+    );
   }
 
-  Widget _buildSuratCard(dynamic surat) {
+  Widget _buildTabBadge(String status) {
+    if (_allSurat.isEmpty) return const SizedBox();
+
+    final count = status == 'Semua'
+        ? _allSurat.length
+        : _allSurat
+            .where((s) {
+              final sStatus = s['status_pengajuan']?.toString() ?? 'diajukan';
+              return sStatus.toLowerCase() == status.toLowerCase();
+            })
+            .length;
+
+    if (count == 0) return const SizedBox();
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(10),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFED7AA),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    surat['jenis_surat'] ?? 'Lainnya',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFFFB923C),
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _getStatusColor(
-                      surat['status_pengajuan'],
-                    ).withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    surat['status_pengajuan'] ?? 'Diajukan',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: _getStatusColor(surat['status_pengajuan']),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              surat['keperluan'] ?? '',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1F2937),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Pengaju: ${surat['nama_pengaju'] ?? 'Tidak diketahui'}',
-              style: const TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
-            ),
-            if (surat['email_pengaju'] != null &&
-                surat['email_pengaju'].isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                'Email: ${surat['email_pengaju']}',
-                style: const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
-              ),
-            ],
-            if (surat['keterangan'] != null &&
-                surat['keterangan'].isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                surat['keterangan'],
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF6B7280),
-                  height: 1.5,
-                ),
-              ),
-            ],
-            if (surat['tanggapan_admin'] != null &&
-                surat['tanggapan_admin'].isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF3F4F6),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Tanggapan Admin:',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF6B7280),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      surat['tanggapan_admin'],
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF374151),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-            if (surat['tanggal_pengajuan'] != null) ...[
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Icon(
-                    Icons.access_time_rounded,
-                    size: 14,
-                    color: Colors.grey[400],
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    surat['tanggal_pengajuan'],
-                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                  ),
-                ],
-              ),
-            ],
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => _showUpdateStatusDialog(surat),
-                    icon: const Icon(Icons.edit_rounded, size: 16),
-                    label: const Text('Update Status'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF3B82F6),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Material(
-                  color: Colors.red.withOpacity(0.04),
-                  borderRadius: BorderRadius.circular(12),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: () async {
-                      final confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Hapus Pengajuan'),
-                          content: const Text(
-                            'Apakah Anda yakin ingin menghapus pengajuan ini?',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, false),
-                              child: const Text('Batal'),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, true),
-                              style: TextButton.styleFrom(
-                                foregroundColor: Colors.red,
-                              ),
-                              child: const Text('Hapus'),
-                            ),
-                          ],
-                        ),
-                      );
-
-                      if (confirm == true) {
-                        final result = await _apiService.deleteSuratPengantar(
-                          surat['id'],
-                        );
-                        if (mounted) {
-                          if (result['success']) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Pengajuan berhasil dihapus'),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                            _loadSuratPengantar();
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  result['message'] ??
-                                      'Gagal menghapus pengajuan',
-                                ),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        }
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      child: const Icon(
-                        Icons.delete_rounded,
-                        color: Colors.red,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
+      child: Text(
+        count.toString(),
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: Colors.green.shade700,
         ),
       ),
     );
   }
+}
 
-  Color _getStatusColor(String? status) {
-    switch (status?.toLowerCase()) {
-      case 'disetujui':
-        return Colors.green;
-      case 'diproses':
-        return Colors.blue;
-      case 'ditolak':
-        return Colors.red;
-      default: // 'diajukan'
-        return Colors.orange;
+// ==================== DIALOG DETAIL & UPDATE ====================
+
+class _SuratDetailDialog extends StatefulWidget {
+  final Map<String, dynamic> surat;
+  final VoidCallback onStatusUpdated;
+
+  const _SuratDetailDialog({
+    required this.surat,
+    required this.onStatusUpdated,
+  });
+
+  @override
+  State<_SuratDetailDialog> createState() => _SuratDetailDialogState();
+}
+
+class _SuratDetailDialogState extends State<_SuratDetailDialog> {
+  final ApiService _apiService = ApiService();
+  final _tanggapanController = TextEditingController();
+  final _fileUrlController = TextEditingController();
+  String _selectedStatus = 'Diproses'; // Default safe value
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Inisialisasi status dengan pengecekan aman
+    final rawStatus = widget.surat['status_pengajuan']?.toString();
+    
+    // Pastikan status cocok dengan salah satu item dropdown, kalau tidak default ke 'Diproses'
+    const validStatuses = ['Diajukan', 'Diproses', 'Disetujui', 'Ditolak'];
+    
+    // Cari status yang cocok (case insensitive)
+    _selectedStatus = validStatuses.firstWhere(
+      (s) => s.toLowerCase() == (rawStatus?.toLowerCase() ?? ''),
+      orElse: () => 'Diproses', // Fallback jika status aneh
+    );
+
+    _tanggapanController.text = widget.surat['tanggapan_admin'] ?? '';
+    _fileUrlController.text = widget.surat['file_surat'] ?? '';
+  }
+
+  Future<void> _updateStatus() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final String suratId = widget.surat['id']?.toString() ?? '';
+      if (suratId.isEmpty) {
+         ScaffoldMessenger.of(context).showSnackBar(
+           const SnackBar(content: Text('Error: ID Surat tidak valid')),
+         );
+         return;
+      }
+
+      final response = await _apiService.updateStatusSuratPengantar(
+        suratId,
+        _selectedStatus,
+        _tanggapanController.text.trim(),
+        _fileUrlController.text.trim().isEmpty
+            ? null
+            : _fileUrlController.text.trim(),
+      );
+
+      if (mounted) {
+        if (response['success']) {
+          Navigator.pop(context);
+          widget.onStatusUpdated();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Status berhasil diperbarui'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response['message'] ?? 'Gagal memperbarui status'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if(mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+             SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red)
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Gunakan ?? untuk mencegah error rendering text null
+    final jenisSurat = widget.surat['jenis_surat'] ?? 'Detail Surat';
+    
+    return AlertDialog(
+      title: Text(jenisSurat),
+      content: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildInfoSection(),
+            const Divider(height: 24),
+            _buildStatusSection(),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isLoading ? null : () => Navigator.pop(context),
+          child: const Text('Batal'),
+        ),
+        ElevatedButton(
+          onPressed: _isLoading ? null : _updateStatus,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green.shade700,
+            foregroundColor: Colors.white,
+          ),
+          child: _isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Text('Simpan'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInfoSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Informasi Pengajuan',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        const SizedBox(height: 12),
+        // Gunakan ?? '-' disemua field
+        _buildDetailRow('Pengaju', widget.surat['nama_pengaju'] ?? '-'),
+        _buildDetailRow('Email', widget.surat['email_pengaju'] ?? '-'),
+        _buildDetailRow('Keperluan', widget.surat['keperluan'] ?? '-'),
+        _buildDetailRow('Keterangan', widget.surat['keterangan'] ?? '-'),
+        _buildDetailRow('Tanggal Pengajuan', widget.surat['tanggal_pengajuan'] ?? '-'),
+        _buildDetailRow('Status Saat Ini', widget.surat['status_pengajuan'] ?? 'Diajukan'),
+      ],
+    );
+  }
+
+  Widget _buildStatusSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Update Status',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          value: _selectedStatus,
+          decoration: const InputDecoration(
+            labelText: 'Status',
+            border: OutlineInputBorder(),
+          ),
+          items: ['Diajukan', 'Diproses', 'Disetujui', 'Ditolak']
+              .map((status) =>
+                  DropdownMenuItem(value: status, child: Text(status)))
+              .toList(),
+          onChanged: (value) => setState(() => _selectedStatus = value!),
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _tanggapanController,
+          decoration: const InputDecoration(
+            labelText: 'Tanggapan Admin',
+            border: OutlineInputBorder(),
+            hintText: 'Berikan tanggapan atau catatan',
+          ),
+          maxLines: 3,
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _fileUrlController,
+          decoration: const InputDecoration(
+            labelText: 'Link File Surat (jika sudah disetujui)',
+            border: OutlineInputBorder(),
+            hintText: 'https://...',
+            prefixIcon: Icon(Icons.link),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+              color: Colors.grey,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(value, style: const TextStyle(fontSize: 14)),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _tanggapanController.dispose();
+    _fileUrlController.dispose();
+    super.dispose();
   }
 }

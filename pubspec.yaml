@@ -10,7 +10,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
+  file_picker: ^6.1.1
   image_picker: ^1.0.7
   cupertino_icons: ^1.0.8
   provider: ^6.1.2
@@ -21,7 +21,6 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
   flutter_lints: ^5.0.0
 
 flutter:
