@@ -1385,6 +1385,10 @@ Future<Map<String, dynamic>> login(String email, String password) async {
   // PERBAIKAN UTAMA ADA DI SINI AGAR TIDAK CRASH
   Future<Map<String, dynamic>> getSuratPengantarAdmin() async {
     try {
+      final token = await _getToken();
+      if (token == null) {
+        return {'success': false, 'message': 'Token tidak valid. Silakan login ulang.'};
+      }
       debugPrint('🔍 Fetching Surat Pengantar Admin...');
       final headers = await _getHeaders();
       
