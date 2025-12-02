@@ -4,6 +4,17 @@ import '../services/api_service.dart';
 import 'dart:convert';
 
 class AuthProvider with ChangeNotifier {
+  // Menandakan apakah provider sudah selesai inisialisasi (memuat token/user)
+  bool _isInitialized = false;
+
+  // Konstruktor: jalankan pengecekan auth segera setelah instance dibuat
+  AuthProvider() {
+    // Panggil tanpa menunggu agar konstruktor tidak perlu async
+    checkAuthStatus().whenComplete(() {
+      _isInitialized = true;
+      notifyListeners();
+    });
+  }
   bool _isAuthenticated = false;
   bool _isLoading = false;
   String? _errorMessage;
@@ -15,6 +26,7 @@ class AuthProvider with ChangeNotifier {
   bool _isVerificationLoading = false;
 
   bool get isAuthenticated => _isAuthenticated;
+  bool get isInitialized => _isInitialized;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   Map<String, dynamic>? get userData => _userData;
@@ -83,20 +95,20 @@ class AuthProvider with ChangeNotifier {
       final token = await _getToken();
       if (token != null) {
         print('✅ TOKEN FOUND, VERIFYING WITH SERVER...'); // DEBUG
-        
+
         // 🔥 PERBAIKAN: Load user data dari storage dulu
         _userData = await _loadUserData();
         print('👤 LOADED USER DATA: $_userData'); // DEBUG
         print('👤 USER ROLE: ${_userData?['role']}'); // DEBUG
-        
+
         // Verify token with server by calling getUserProfile
         final apiService = ApiService();
         final result = await apiService.getUserProfile();
-        
+
         if (result['success'] == true) {
           print('✅ TOKEN VALID'); // DEBUG
           _isAuthenticated = true;
-          
+
           // 🔥 PERBAIKAN: Update user data dari server jika ada
           if (result['data'] != null) {
             _userData = result['data'] as Map<String, dynamic>;
@@ -104,7 +116,6 @@ class AuthProvider with ChangeNotifier {
             print('🔄 USER DATA UPDATED FROM SERVER: $_userData'); // DEBUG
             print('🔑 UPDATED USER ROLE: ${_userData?['role']}'); // DEBUG
           }
-          
         } else {
           print('❌ TOKEN INVALID, CLEARING...'); // DEBUG
           await _clearToken();
@@ -142,7 +153,9 @@ class AuthProvider with ChangeNotifier {
 
     _isLoading = false;
     notifyListeners();
-    print('🏁 AUTH CHECK COMPLETE - isAuth: $_isAuthenticated, role: ${_userData?['role']}'); // DEBUG
+    print(
+      '🏁 AUTH CHECK COMPLETE - isAuth: $_isAuthenticated, role: ${_userData?['role']}',
+    ); // DEBUG
     return _isAuthenticated;
   }
 
@@ -165,7 +178,9 @@ class AuthProvider with ChangeNotifier {
         // PENTING: result['data'] sudah berisi response dari backend
         // yang strukturnya: {user: {...}, token: ...}
         print('🔍 result[data]: ${result['data']}'); // DEBUG
-        print('🔍 result[data] keys: ${result['data']?.keys.toList()}'); // DEBUG
+        print(
+          '🔍 result[data] keys: ${result['data']?.keys.toList()}',
+        ); // DEBUG
 
         // Ambil user data dari result['data']['user']
         if (result['data'] != null && result['data']['user'] != null) {
@@ -206,7 +221,6 @@ class AuthProvider with ChangeNotifier {
         } else {
           print('⚠️ NO USER DATA TO SAVE'); // DEBUG
         }
-
       } else {
         print('❌ LOGIN FAILED: ${result['message']}'); // DEBUG
         _isAuthenticated = false;
