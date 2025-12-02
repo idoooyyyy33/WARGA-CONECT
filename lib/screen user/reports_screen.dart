@@ -16,6 +16,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   final ApiService _apiService = ApiService();
   List<dynamic> _reports = [];
   bool _isLoading = false;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -246,118 +247,166 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Container(
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFFB923C), Color(0xFFF97316)],
-                ),
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(32),
-                  bottomRight: Radius.circular(32),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFFB923C).withOpacity(0.3),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: IconButton(
-                            icon: const Icon(
-                              Icons.arrow_back_rounded,
-                              color: Colors.white,
-                            ),
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        const Text(
-                          'Laporan Warga',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
-            // Content
-            Expanded(
-              child: _isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        color: Color(0xFFFB923C),
-                      ),
-                    )
-                  : _reports.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.report_outlined,
-                            size: 80,
-                            color: Colors.grey[300],
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Belum ada laporan',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey[600],
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _loadReports,
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(20),
-                        itemCount: _reports.length,
-                        itemBuilder: (context, index) {
-                          final report = _reports[index];
-                          return _buildReportCard(report);
-                        },
-                      ),
-                    ),
-            ),
-          ],
-        ),
-      ),
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showCreateReportDialog,
-        backgroundColor: const Color(0xFFFB923C),
+        backgroundColor: const Color(0xFF10B981),
         icon: const Icon(Icons.add_rounded, color: Colors.white),
         label: const Text(
           'Buat Laporan',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
+      ),
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _loadReports,
+          color: const Color(0xFF10B981),
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(child: _buildLargeHeader(isMobile)),
+
+              _isLoading
+                  ? const SliverFillRemaining(
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF10B981),
+                        ),
+                      ),
+                    )
+                  : _filteredReports.isEmpty
+                  ? SliverFillRemaining(
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.report_outlined,
+                              size: 80,
+                              color: Colors.grey[300],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Belum ada laporan',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : SliverPadding(
+                      padding: EdgeInsets.fromLTRB(
+                        isMobile ? 16 : 20,
+                        12,
+                        isMobile ? 16 : 20,
+                        80,
+                      ),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate((context, index) {
+                          final report = _filteredReports[index];
+                          return _buildReportCard(report);
+                        }, childCount: _filteredReports.length),
+                      ),
+                    ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<dynamic> get _filteredReports {
+    if (_searchQuery.isEmpty) return _reports;
+    final q = _searchQuery.toLowerCase();
+    return _reports.where((r) {
+      final title = (r['title'] ?? '').toString().toLowerCase();
+      final author = (r['author'] ?? '').toString().toLowerCase();
+      return title.contains(q) || author.contains(q);
+    }).toList();
+  }
+
+  Widget _buildLargeHeader(bool isMobile) {
+    return Container(
+      margin: EdgeInsets.all(isMobile ? 12 : 20),
+      padding: EdgeInsets.all(isMobile ? 18 : 20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF334155)],
+        ),
+        borderRadius: BorderRadius.circular(isMobile ? 18 : 22),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF334155).withOpacity(0.25),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: IconButton(
+                  icon: const Icon(
+                    Icons.arrow_back_rounded,
+                    color: Colors.white,
+                  ),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Laporan Warga',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white.withOpacity(0.12)),
+            ),
+            child: TextField(
+              onChanged: (v) => setState(() => _searchQuery = v),
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Cari laporan atau pelapor...',
+                hintStyle: TextStyle(color: Colors.white.withOpacity(0.8)),
+                prefixIcon: Icon(
+                  Icons.search_rounded,
+                  color: Colors.white.withOpacity(0.85),
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

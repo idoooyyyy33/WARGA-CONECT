@@ -16,86 +16,137 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     _loadAnnouncements();
   }
 
+  String _searchQuery = '';
+
   Future<void> _loadAnnouncements() async {
-    await Provider.of<AnnouncementProvider>(context, listen: false)
-        .fetchAnnouncements();
+    await Provider.of<AnnouncementProvider>(
+      context,
+      listen: false,
+    ).fetchAnnouncements();
   }
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    final provider = Provider.of<AnnouncementProvider>(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Container(
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
-                ),
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(32),
-                  bottomRight: Radius.circular(32),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF3B82F6).withOpacity(0.3),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: IconButton(
-                            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        const Text(
-                          'Semua Pengumuman',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
+        child: RefreshIndicator(
+          onRefresh: _loadAnnouncements,
+          color: const Color(0xFF10B981),
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Container(
+                  margin: EdgeInsets.all(isMobile ? 12 : 20),
+                  padding: EdgeInsets.all(isMobile ? 18 : 20),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFF0F172A),
+                        Color(0xFF1E293B),
+                        Color(0xFF334155),
                       ],
                     ),
-                  ],
+                    borderRadius: BorderRadius.circular(isMobile ? 18 : 22),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF334155).withOpacity(0.25),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: IconButton(
+                              icon: const Icon(
+                                Icons.arrow_back_rounded,
+                                color: Colors.white,
+                              ),
+                              onPressed: () => Navigator.pop(context),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'Semua Pengumuman',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.06),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.12),
+                          ),
+                        ),
+                        child: TextField(
+                          onChanged: (v) => setState(() => _searchQuery = v),
+                          style: const TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            hintText: 'Cari pengumuman...',
+                            hintStyle: TextStyle(
+                              color: Colors.white.withOpacity(0.8),
+                            ),
+                            prefixIcon: Icon(
+                              Icons.search_rounded,
+                              color: Colors.white.withOpacity(0.85),
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
 
-            // Content
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: _loadAnnouncements,
-                color: const Color(0xFF3B82F6),
-                child: Consumer<AnnouncementProvider>(
-                  builder: (context, provider, child) {
-                    if (provider.isLoading) {
-                      return const Center(
-                        child: CircularProgressIndicator(
-                          color: Color(0xFF3B82F6),
-                        ),
-                      );
-                    }
-
-                    if (provider.announcements.isEmpty) {
-                      return Center(
+              if (provider.isLoading)
+                const SliverFillRemaining(
+                  child: Center(
+                    child: CircularProgressIndicator(color: Color(0xFF10B981)),
+                  ),
+                )
+              else
+                (() {
+                  final list = _searchQuery.isEmpty
+                      ? provider.announcements
+                      : provider.announcements.where((a) {
+                          final t = (a['title'] ?? '').toString().toLowerCase();
+                          final d = (a['description'] ?? '')
+                              .toString()
+                              .toLowerCase();
+                          return t.contains(_searchQuery.toLowerCase()) ||
+                              d.contains(_searchQuery.toLowerCase());
+                        }).toList();
+                  if (list.isEmpty) {
+                    return SliverFillRemaining(
+                      child: Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -115,22 +166,27 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                             ),
                           ],
                         ),
-                      );
-                    }
-
-                    return ListView.builder(
-                      padding: const EdgeInsets.all(20),
-                      itemCount: provider.announcements.length,
-                      itemBuilder: (context, index) {
-                        final announcement = provider.announcements[index];
-                        return _buildAnnouncementItem(announcement);
-                      },
+                      ),
                     );
-                  },
-                ),
-              ),
-            ),
-          ],
+                  }
+
+                  return SliverPadding(
+                    padding: EdgeInsets.fromLTRB(
+                      isMobile ? 16 : 20,
+                      12,
+                      isMobile ? 16 : 20,
+                      80,
+                    ),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) => _buildAnnouncementItem(list[index]),
+                        childCount: list.length,
+                      ),
+                    ),
+                  );
+                })(),
+            ],
+          ),
         ),
       ),
     );
@@ -165,15 +221,15 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      const Color(0xFF3B82F6).withOpacity(0.2),
-                      const Color(0xFF2563EB).withOpacity(0.2),
+                      const Color(0xFF10B981).withOpacity(0.2),
+                      const Color(0xFF059669).withOpacity(0.2),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: const Icon(
                   Icons.campaign_rounded,
-                  color: Color(0xFF3B82F6),
+                  color: Color(0xFF10B981),
                   size: 24,
                 ),
               ),
@@ -222,10 +278,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                   ],
                 ),
               ),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: Colors.grey[400],
-              ),
+              Icon(Icons.chevron_right_rounded, color: Colors.grey[400]),
             ],
           ),
         ),
@@ -262,7 +315,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              
+
               Expanded(
                 child: SingleChildScrollView(
                   controller: scrollController,
@@ -313,29 +366,28 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                           ),
                         ],
                       ),
-                      
+
                       const SizedBox(height: 24),
-                      
+
                       // Divider
-                      Container(
-                        height: 1,
-                        color: Colors.grey[200],
-                      ),
-                      
+                      Container(height: 1, color: Colors.grey[200]),
+
                       const SizedBox(height: 24),
-                      
+
                       // Content
                       Text(
-                        announcement['fullDescription'] ?? announcement['description'] ?? '',
+                        announcement['fullDescription'] ??
+                            announcement['description'] ??
+                            '',
                         style: const TextStyle(
                           fontSize: 15,
                           color: Color(0xFF4B5563),
                           height: 1.7,
                         ),
                       ),
-                      
+
                       const SizedBox(height: 32),
-                      
+
                       // Close Button
                       SizedBox(
                         width: double.infinity,

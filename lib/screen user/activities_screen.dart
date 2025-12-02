@@ -12,6 +12,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
   final ApiService _apiService = ApiService();
   List<dynamic> _activities = [];
   bool _isLoading = false;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -44,106 +45,157 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Container(
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
-                ),
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(32),
-                  bottomRight: Radius.circular(32),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFF59E0B).withOpacity(0.3),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: IconButton(
-                            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        const Text(
-                          'Kegiatan Warga',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
-            // Content
-            Expanded(
-              child: _isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        color: Color(0xFFF59E0B),
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _loadActivities,
+          color: const Color(0xFF10B981),
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(child: _buildLargeHeader(isMobile)),
+
+              _isLoading
+                  ? const SliverFillRemaining(
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF10B981),
+                        ),
                       ),
                     )
-                  : _activities.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.calendar_month_outlined,
-                                size: 80,
-                                color: Colors.grey[300],
+                  : _filteredActivities.isEmpty
+                  ? SliverFillRemaining(
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.calendar_month_outlined,
+                              size: 80,
+                              color: Colors.grey[300],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Belum ada kegiatan',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w500,
                               ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Belum ada kegiatan',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.grey[600],
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      : RefreshIndicator(
-                          onRefresh: _loadActivities,
-                          child: ListView.builder(
-                            padding: const EdgeInsets.all(20),
-                            itemCount: _activities.length,
-                            itemBuilder: (context, index) {
-                              final activity = _activities[index];
-                              return _buildActivityCard(activity);
-                            },
-                          ),
+                            ),
+                          ],
                         ),
-            ),
-          ],
+                      ),
+                    )
+                  : SliverPadding(
+                      padding: EdgeInsets.fromLTRB(
+                        isMobile ? 16 : 20,
+                        12,
+                        isMobile ? 16 : 20,
+                        80,
+                      ),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate((context, index) {
+                          final activity = _filteredActivities[index];
+                          return _buildActivityCard(activity);
+                        }, childCount: _filteredActivities.length),
+                      ),
+                    ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  List<dynamic> get _filteredActivities {
+    if (_searchQuery.isEmpty) return _activities;
+    final q = _searchQuery.toLowerCase();
+    return _activities.where((a) {
+      final title = (a['title'] ?? '').toString().toLowerCase();
+      final desc = (a['description'] ?? '').toString().toLowerCase();
+      return title.contains(q) || desc.contains(q);
+    }).toList();
+  }
+
+  Widget _buildLargeHeader(bool isMobile) {
+    return Container(
+      margin: EdgeInsets.all(isMobile ? 12 : 20),
+      padding: EdgeInsets.all(isMobile ? 18 : 20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF334155)],
+        ),
+        borderRadius: BorderRadius.circular(isMobile ? 18 : 22),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1E293B).withOpacity(0.4),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: IconButton(
+                  icon: const Icon(
+                    Icons.arrow_back_rounded,
+                    color: Colors.white,
+                  ),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Kegiatan Warga',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white.withOpacity(0.12)),
+            ),
+            child: TextField(
+              onChanged: (v) => setState(() => _searchQuery = v),
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Cari kegiatan...',
+                hintStyle: TextStyle(color: Colors.white.withOpacity(0.8)),
+                prefixIcon: Icon(
+                  Icons.search_rounded,
+                  color: Colors.white.withOpacity(0.85),
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -175,15 +227,15 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      const Color(0xFFF59E0B).withOpacity(0.2),
-                      const Color(0xFFD97706).withOpacity(0.2),
+                      const Color(0xFF10B981).withOpacity(0.2),
+                      const Color(0xFF059669).withOpacity(0.2),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: const Icon(
                   Icons.calendar_month_rounded,
-                  color: Color(0xFFF59E0B),
+                  color: Color(0xFF10B981),
                   size: 24,
                 ),
               ),
@@ -250,10 +302,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                   ],
                 ),
               ),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: Colors.grey[400],
-              ),
+              Icon(Icons.chevron_right_rounded, color: Colors.grey[400]),
             ],
           ),
         ),
@@ -345,10 +394,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                       const SizedBox(height: 24),
 
                       // Divider
-                      Container(
-                        height: 1,
-                        color: Colors.grey[200],
-                      ),
+                      Container(height: 1, color: Colors.grey[200]),
 
                       const SizedBox(height: 24),
 
@@ -402,7 +448,9 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        activity['fullDescription'] ?? activity['description'] ?? '',
+                        activity['fullDescription'] ??
+                            activity['description'] ??
+                            '',
                         style: const TextStyle(
                           fontSize: 15,
                           color: Color(0xFF4B5563),

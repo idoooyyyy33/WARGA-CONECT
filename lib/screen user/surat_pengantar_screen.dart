@@ -18,6 +18,7 @@ class _SuratPengantarScreenState extends State<SuratPengantarScreen> {
   final ApiService _apiService = ApiService();
   List<dynamic> _suratList = [];
   bool _isLoading = false;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -140,57 +141,178 @@ class _SuratPengantarScreenState extends State<SuratPengantarScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Surat Pengantar'),
-        backgroundColor: Colors.green.shade700,
-        foregroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF8FAFC),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showAddDialog,
+        backgroundColor: const Color(0xFF10B981),
+        icon: const Icon(Icons.add),
+        label: const Text('Ajukan Surat'),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _loadSurat,
-              child: _suratList.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _loadSurat,
+          color: const Color(0xFF10B981),
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Container(
+                  margin: EdgeInsets.all(isMobile ? 12 : 20),
+                  padding: EdgeInsets.all(isMobile ? 18 : 20),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFF0F172A),
+                        Color(0xFF1E293B),
+                        Color(0xFF334155),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(isMobile ? 18 : 22),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF334155).withOpacity(0.2),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         children: [
-                          Icon(
-                            Icons.description_outlined,
-                            size: 64,
-                            color: Colors.grey.shade400,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Belum ada pengajuan surat',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey.shade600,
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: IconButton(
+                              icon: const Icon(
+                                Icons.arrow_back_rounded,
+                                color: Colors.white,
+                              ),
+                              onPressed: () => Navigator.pop(context),
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Tap tombol + untuk mengajukan surat',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey.shade500,
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'Surat Pengantar',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ],
                       ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _suratList.length,
-                      itemBuilder: (context, index) {
-                        final surat = _suratList[index];
+                      const SizedBox(height: 12),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.06),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.12),
+                          ),
+                        ),
+                        child: TextField(
+                          onChanged: (v) => setState(() => _searchQuery = v),
+                          style: const TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            hintText: 'Cari jenis atau keperluan...',
+                            hintStyle: TextStyle(
+                              color: Colors.white.withOpacity(0.8),
+                            ),
+                            prefixIcon: Icon(
+                              Icons.search_rounded,
+                              color: Colors.white.withOpacity(0.85),
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              if (_isLoading)
+                const SliverFillRemaining(
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else
+                (() {
+                  final list = _searchQuery.isEmpty
+                      ? _suratList
+                      : _suratList.where((s) {
+                          final j = (s['jenis_surat'] ?? '')
+                              .toString()
+                              .toLowerCase();
+                          final k = (s['keperluan'] ?? '')
+                              .toString()
+                              .toLowerCase();
+                          return j.contains(_searchQuery.toLowerCase()) ||
+                              k.contains(_searchQuery.toLowerCase());
+                        }).toList();
+                  if (list.isEmpty) {
+                    return SliverFillRemaining(
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.description_outlined,
+                              size: 64,
+                              color: Colors.grey.shade400,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Belum ada pengajuan surat',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Tap tombol + untuk mengajukan surat',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  return SliverPadding(
+                    padding: EdgeInsets.fromLTRB(
+                      isMobile ? 16 : 20,
+                      12,
+                      isMobile ? 16 : 20,
+                      80,
+                    ),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final surat = list[index];
                         return Card(
                           margin: const EdgeInsets.only(bottom: 12),
                           child: ListTile(
                             leading: CircleAvatar(
                               backgroundColor: _getStatusColor(
                                 surat['status_pengajuan'],
-                              ).withValues(alpha: 0.2),
+                              ).withOpacity(0.2),
                               child: Icon(
                                 _getStatusIcon(surat['status_pengajuan']),
                                 color: _getStatusColor(
@@ -199,7 +321,7 @@ class _SuratPengantarScreenState extends State<SuratPengantarScreen> {
                               ),
                             ),
                             title: Text(
-                              surat['jenis_surat'],
+                              surat['jenis_surat'] ?? '',
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                               ),
@@ -208,7 +330,7 @@ class _SuratPengantarScreenState extends State<SuratPengantarScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const SizedBox(height: 4),
-                                Text(surat['keperluan']),
+                                Text(surat['keperluan'] ?? ''),
                                 const SizedBox(height: 4),
                                 Row(
                                   children: [
@@ -220,11 +342,11 @@ class _SuratPengantarScreenState extends State<SuratPengantarScreen> {
                                       decoration: BoxDecoration(
                                         color: _getStatusColor(
                                           surat['status_pengajuan'],
-                                        ).withValues(alpha: 0.2),
+                                        ).withOpacity(0.2),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Text(
-                                        surat['status_pengajuan'],
+                                        surat['status_pengajuan'] ?? '',
                                         style: TextStyle(
                                           fontSize: 11,
                                           color: _getStatusColor(
@@ -236,7 +358,7 @@ class _SuratPengantarScreenState extends State<SuratPengantarScreen> {
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
-                                      surat['tanggal_pengajuan'],
+                                      surat['tanggal_pengajuan'] ?? '',
                                       style: TextStyle(
                                         fontSize: 11,
                                         color: Colors.grey.shade600,
@@ -253,14 +375,13 @@ class _SuratPengantarScreenState extends State<SuratPengantarScreen> {
                             onTap: () => _showDetailDialog(surat),
                           ),
                         );
-                      },
+                      }, childCount: list.length),
                     ),
-            ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddDialog,
-        backgroundColor: Colors.green.shade700,
-        icon: const Icon(Icons.add),
-        label: const Text('Ajukan Surat'),
+                  );
+                })(),
+            ],
+          ),
+        ),
       ),
     );
   }

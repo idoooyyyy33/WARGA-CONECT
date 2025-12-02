@@ -82,19 +82,160 @@ class _WargaAdminPageState extends State<WargaAdminPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildBackToDashboardButton(),
-        const SizedBox(height: 24),
-        _buildHeader(),
-        const SizedBox(height: 24),
-        _buildStatsCards(),
-        const SizedBox(height: 24),
-        _buildSearchBar(),
-        const SizedBox(height: 24),
-        _isLoading ? _buildLoadingState() : _buildWargaList(),
-      ],
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _loadWarga,
+          color: const Color(0xFFEC4899),
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(child: _buildLargeHeader(isMobile)),
+
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isMobile ? 16 : 24,
+                    vertical: 12,
+                  ),
+                  child: _buildStatsCards(),
+                ),
+              ),
+
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
+                  child: _buildSearchBar(),
+                ),
+              ),
+
+              _isLoading
+                  ? const SliverFillRemaining(
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFFEC4899),
+                        ),
+                      ),
+                    )
+                  : _filteredWarga.isEmpty
+                  ? SliverFillRemaining(child: _buildEmptyState())
+                  : SliverPadding(
+                      padding: EdgeInsets.fromLTRB(
+                        isMobile ? 16 : 24,
+                        12,
+                        isMobile ? 16 : 24,
+                        80,
+                      ),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) =>
+                              _buildWargaCard(_filteredWarga[index], index),
+                          childCount: _filteredWarga.length,
+                        ),
+                      ),
+                    ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLargeHeader(bool isMobile) {
+    return Container(
+      margin: EdgeInsets.all(isMobile ? 12 : 20),
+      padding: EdgeInsets.all(isMobile ? 20 : 24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF334155)],
+        ),
+        borderRadius: BorderRadius.circular(isMobile ? 20 : 24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1E293B).withOpacity(0.3),
+            blurRadius: 30,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Material(
+                color: Colors.white.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  onTap: widget.onBackPressed ?? () => Navigator.pop(context),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    child: const Icon(
+                      Icons.arrow_back_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Database Warga',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${_wargaList.length} total warga',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white.withOpacity(0.12)),
+            ),
+            child: TextField(
+              onChanged: (value) => setState(() => _searchQuery = value),
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Cari nama warga atau email...',
+                hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                prefixIcon: Icon(
+                  Icons.search_rounded,
+                  color: Colors.white.withOpacity(0.8),
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 14,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

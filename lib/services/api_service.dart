@@ -6,8 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // --- PERHATIAN: Menggunakan IP untuk akses otomatis ---
-  // Untuk emulator Android gunakan 172.168.47.116, untuk iOS simulator gunakan localhost
-  static const String baseUrl = 'http://172.168.47.116:3000/api';
+  // Untuk emulator Android gunakan 192.168.1.34, untuk iOS simulator gunakan localhost
+  static const String baseUrl = 'http://192.168.1.34:3000/api';
 
   // Helper untuk handle response
   Map<String, dynamic> _handleResponse(http.Response response) {

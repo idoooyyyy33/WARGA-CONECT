@@ -45,10 +45,14 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
           }
 
           if (!results[0]['success']) {
-            _showErrorSnackbar(results[0]['message'] ?? 'Gagal memuat data UMKM');
+            _showErrorSnackbar(
+              results[0]['message'] ?? 'Gagal memuat data UMKM',
+            );
           }
           if (!results[1]['success']) {
-            _showErrorSnackbar(results[1]['message'] ?? 'Gagal memuat data warga');
+            _showErrorSnackbar(
+              results[1]['message'] ?? 'Gagal memuat data warga',
+            );
           }
         });
       }
@@ -92,7 +96,9 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
           : '';
       final kategori = umkm['kategori']?.toString().toLowerCase() ?? '';
       final query = _searchQuery.toLowerCase();
-      return nama.contains(query) || pemilik.contains(query) || kategori.contains(query);
+      return nama.contains(query) ||
+          pemilik.contains(query) ||
+          kategori.contains(query);
     }).toList();
   }
 
@@ -118,18 +124,167 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 600;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildBackToDashboardButton(),
-        _buildHeader(),
-        const SizedBox(height: 24),
-        _buildStatsCards(isMobile),
-        const SizedBox(height: 24),
-        _buildSearchAndAddBar(),
-        const SizedBox(height: 24),
-        _isLoading ? _buildLoadingState() : _buildUMKMList(),
-      ],
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showAddUMKMDialog(),
+        backgroundColor: const Color(0xFF06B6D4),
+        icon: const Icon(Icons.add_rounded, color: Colors.white),
+        label: const Text(
+          'Tambah UMKM',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+      ),
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _loadData,
+          color: const Color(0xFF06B6D4),
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(child: _buildLargeHeader(isMobile)),
+
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isMobile ? 16 : 24,
+                    vertical: 12,
+                  ),
+                  child: _buildStatsCards(isMobile),
+                ),
+              ),
+
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
+                  child: _buildSearchAndAddBar(),
+                ),
+              ),
+
+              _isLoading
+                  ? const SliverFillRemaining(
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF06B6D4),
+                        ),
+                      ),
+                    )
+                  : _filteredUMKM.isEmpty
+                  ? SliverFillRemaining(child: _buildEmptyState())
+                  : SliverPadding(
+                      padding: EdgeInsets.fromLTRB(
+                        isMobile ? 16 : 24,
+                        12,
+                        isMobile ? 16 : 24,
+                        80,
+                      ),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) =>
+                              _buildUMKMCard(_filteredUMKM[index], index),
+                          childCount: _filteredUMKM.length,
+                        ),
+                      ),
+                    ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLargeHeader(bool isMobile) {
+    return Container(
+      margin: EdgeInsets.all(isMobile ? 12 : 20),
+      padding: EdgeInsets.all(isMobile ? 20 : 24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF334155)],
+        ),
+        borderRadius: BorderRadius.circular(isMobile ? 20 : 24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1E293B).withOpacity(0.3),
+            blurRadius: 30,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Material(
+                color: Colors.white.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  onTap: widget.onBackPressed ?? () => Navigator.pop(context),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    child: const Icon(
+                      Icons.arrow_back_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Data UMKM',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Kelola data usaha warga RT',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.85),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white.withOpacity(0.12)),
+            ),
+            child: TextField(
+              onChanged: (value) => setState(() => _searchQuery = value),
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Cari nama usaha atau pemilik...',
+                hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                prefixIcon: Icon(
+                  Icons.search_rounded,
+                  color: Colors.white.withOpacity(0.8),
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 14,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -156,7 +311,11 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
           child: const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.arrow_back_rounded, color: Color(0xFF64748B), size: 20),
+              Icon(
+                Icons.arrow_back_rounded,
+                color: Color(0xFF64748B),
+                size: 20,
+              ),
               SizedBox(width: 8),
               Text(
                 'Kembali ke Dashboard',
@@ -308,7 +467,12 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -384,9 +548,15 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
               decoration: const InputDecoration(
                 hintText: 'Cari nama usaha atau pemilik...',
                 hintStyle: TextStyle(color: Color(0xFF94A3B8)),
-                prefixIcon: Icon(Icons.search_rounded, color: Color(0xFF64748B)),
+                prefixIcon: Icon(
+                  Icons.search_rounded,
+                  color: Color(0xFF64748B),
+                ),
                 border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 16,
+                ),
               ),
             ),
           ),
@@ -400,7 +570,11 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
             borderRadius: BorderRadius.circular(14),
             child: Container(
               padding: const EdgeInsets.all(16),
-              child: const Icon(Icons.add_rounded, color: Colors.white, size: 24),
+              child: const Icon(
+                Icons.add_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
             ),
           ),
         ),
@@ -414,14 +588,14 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           SizedBox(height: 60),
-          CircularProgressIndicator(
-            color: Color(0xFF06B6D4),
-            strokeWidth: 3,
-          ),
+          CircularProgressIndicator(color: Color(0xFF06B6D4), strokeWidth: 3),
           SizedBox(height: 16),
           Text(
             'Memuat data UMKM...',
-            style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+            style: TextStyle(
+              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),
@@ -521,7 +695,10 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                     ),
                     const SizedBox(height: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF06B6D4).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(6),
@@ -539,7 +716,11 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                     if (noHp != '-') ...[
                       Row(
                         children: [
-                          const Icon(Icons.phone_outlined, size: 14, color: Color(0xFF94A3B8)),
+                          const Icon(
+                            Icons.phone_outlined,
+                            size: 14,
+                            color: Color(0xFF94A3B8),
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             noHp,
@@ -555,7 +736,11 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                     ],
                     Row(
                       children: [
-                        const Icon(Icons.location_on_outlined, size: 14, color: Color(0xFF94A3B8)),
+                        const Icon(
+                          Icons.location_on_outlined,
+                          size: 14,
+                          color: Color(0xFF94A3B8),
+                        ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
@@ -575,8 +760,13 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                 ),
               ),
               PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert_rounded, color: Color(0xFF64748B)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                icon: const Icon(
+                  Icons.more_vert_rounded,
+                  color: Color(0xFF64748B),
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 onSelected: (value) {
                   if (value == 'detail') {
                     _showUMKMDetail(umkm);
@@ -591,7 +781,11 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                     value: 'detail',
                     child: Row(
                       children: [
-                        Icon(Icons.visibility_rounded, size: 20, color: Color(0xFF06B6D4)),
+                        Icon(
+                          Icons.visibility_rounded,
+                          size: 20,
+                          color: Color(0xFF06B6D4),
+                        ),
                         SizedBox(width: 12),
                         Text('Lihat Detail'),
                       ],
@@ -601,7 +795,11 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                     value: 'edit',
                     child: Row(
                       children: [
-                        Icon(Icons.edit_rounded, size: 20, color: Color(0xFFF59E0B)),
+                        Icon(
+                          Icons.edit_rounded,
+                          size: 20,
+                          color: Color(0xFFF59E0B),
+                        ),
                         SizedBox(width: 12),
                         Text('Edit'),
                       ],
@@ -611,7 +809,11 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                     value: 'delete',
                     child: Row(
                       children: [
-                        Icon(Icons.delete_rounded, size: 20, color: Color(0xFFDC2626)),
+                        Icon(
+                          Icons.delete_rounded,
+                          size: 20,
+                          color: Color(0xFFDC2626),
+                        ),
                         SizedBox(width: 12),
                         Text('Hapus'),
                       ],
@@ -656,10 +858,7 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
           const SizedBox(height: 8),
           const Text(
             'Tambahkan UMKM pertama Anda',
-            style: TextStyle(
-              fontSize: 14,
-              color: Color(0xFF64748B),
-            ),
+            style: TextStyle(fontSize: 14, color: Color(0xFF64748B)),
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
@@ -689,13 +888,15 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
     final deskripsiController = TextEditingController();
     final noHpController = TextEditingController();
     final lokasiController = TextEditingController();
-    
+
     String? selectedKategori;
     final kategoriLainnyaController = TextEditingController();
     bool showKategoriLainnya = false;
 
     if (_wargaList.isEmpty) {
-      _showErrorSnackbar('Data warga tidak ditemukan. Tidak bisa menambah UMKM.');
+      _showErrorSnackbar(
+        'Data warga tidak ditemukan. Tidak bisa menambah UMKM.',
+      );
       return;
     }
 
@@ -703,7 +904,9 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
           child: Container(
             constraints: const BoxConstraints(maxWidth: 500),
             padding: const EdgeInsets.all(24),
@@ -722,7 +925,10 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                             color: const Color(0xFF06B6D4).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Icons.add_rounded, color: Color(0xFF06B6D4)),
+                          child: const Icon(
+                            Icons.add_rounded,
+                            color: Color(0xFF06B6D4),
+                          ),
                         ),
                         const SizedBox(width: 16),
                         const Expanded(
@@ -760,10 +966,11 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                       onChanged: (value) {
                         selectedPemilikId = value;
                       },
-                      validator: (value) => value == null ? 'Pemilik harus dipilih' : null,
+                      validator: (value) =>
+                          value == null ? 'Pemilik harus dipilih' : null,
                     ),
                     const SizedBox(height: 16),
-                    
+
                     TextFormField(
                       controller: namaUsahaController,
                       decoration: const InputDecoration(
@@ -771,10 +978,12 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                         prefixIcon: Icon(Icons.business_rounded),
                         border: OutlineInputBorder(),
                       ),
-                      validator: (value) => value?.isEmpty ?? true ? 'Nama usaha harus diisi' : null,
+                      validator: (value) => value?.isEmpty ?? true
+                          ? 'Nama usaha harus diisi'
+                          : null,
                     ),
                     const SizedBox(height: 16),
-                    
+
                     DropdownButtonFormField<String>(
                       value: selectedKategori,
                       hint: const Text('Pilih Kategori'),
@@ -784,12 +993,27 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                         border: OutlineInputBorder(),
                       ),
                       items: const [
-                        DropdownMenuItem(value: 'Makanan', child: Text('Makanan')),
-                        DropdownMenuItem(value: 'Minuman', child: Text('Minuman')),
+                        DropdownMenuItem(
+                          value: 'Makanan',
+                          child: Text('Makanan'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Minuman',
+                          child: Text('Minuman'),
+                        ),
                         DropdownMenuItem(value: 'Jasa', child: Text('Jasa')),
-                        DropdownMenuItem(value: 'Kerajinan', child: Text('Kerajinan')),
-                        DropdownMenuItem(value: 'Lainnya', child: Text('Lainnya')),
-                        DropdownMenuItem(value: 'custom', child: Text('-- Isi Sendiri --')),
+                        DropdownMenuItem(
+                          value: 'Kerajinan',
+                          child: Text('Kerajinan'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Lainnya',
+                          child: Text('Lainnya'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'custom',
+                          child: Text('-- Isi Sendiri --'),
+                        ),
                       ],
                       onChanged: (value) {
                         setDialogState(() {
@@ -800,9 +1024,10 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                           }
                         });
                       },
-                      validator: (value) => value == null ? 'Kategori harus dipilih' : null,
+                      validator: (value) =>
+                          value == null ? 'Kategori harus dipilih' : null,
                     ),
-                    
+
                     if (showKategoriLainnya) ...[
                       const SizedBox(height: 16),
                       TextFormField(
@@ -813,12 +1038,14 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                           border: OutlineInputBorder(),
                           hintText: 'Masukkan kategori custom',
                         ),
-                        validator: (value) => value?.isEmpty ?? true ? 'Kategori custom harus diisi' : null,
+                        validator: (value) => value?.isEmpty ?? true
+                            ? 'Kategori custom harus diisi'
+                            : null,
                       ),
                     ],
-                    
+
                     const SizedBox(height: 16),
-                    
+
                     TextFormField(
                       controller: deskripsiController,
                       maxLines: 3,
@@ -829,7 +1056,7 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
+
                     TextFormField(
                       controller: noHpController,
                       keyboardType: TextInputType.phone,
@@ -840,7 +1067,7 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
+
                     TextFormField(
                       controller: lokasiController,
                       decoration: const InputDecoration(
@@ -850,7 +1077,7 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    
+
                     Row(
                       children: [
                         Expanded(
@@ -872,7 +1099,8 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                               if (formKey.currentState!.validate()) {
                                 String finalKategori;
                                 if (selectedKategori == 'custom') {
-                                  finalKategori = kategoriLainnyaController.text.trim();
+                                  finalKategori = kategoriLainnyaController.text
+                                      .trim();
                                 } else {
                                   finalKategori = selectedKategori!;
                                 }
@@ -889,10 +1117,15 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                                 if (mounted) {
                                   Navigator.pop(context);
                                   if (result['success']) {
-                                    _showSuccessSnackbar('UMKM baru berhasil ditambahkan');
+                                    _showSuccessSnackbar(
+                                      'UMKM baru berhasil ditambahkan',
+                                    );
                                     _loadData();
                                   } else {
-                                    _showErrorSnackbar(result['message'] ?? 'Gagal menambahkan UMKM');
+                                    _showErrorSnackbar(
+                                      result['message'] ??
+                                          'Gagal menambahkan UMKM',
+                                    );
                                   }
                                 }
                               }
@@ -922,19 +1155,31 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
 
   void _showEditUMKMDialog(dynamic umkm) {
     final formKey = GlobalKey<FormState>();
-    
+
     String? selectedPemilikId = umkm['pemilik_id']?['_id']?.toString();
-    final namaUsahaController = TextEditingController(text: umkm['nama_usaha'] ?? '');
-    final deskripsiController = TextEditingController(text: umkm['deskripsi'] ?? '');
-    final noHpController = TextEditingController(text: umkm['no_hp_usaha'] ?? '');
+    final namaUsahaController = TextEditingController(
+      text: umkm['nama_usaha'] ?? '',
+    );
+    final deskripsiController = TextEditingController(
+      text: umkm['deskripsi'] ?? '',
+    );
+    final noHpController = TextEditingController(
+      text: umkm['no_hp_usaha'] ?? '',
+    );
     final lokasiController = TextEditingController(text: umkm['lokasi'] ?? '');
-    
+
     String kategoriExisting = umkm['kategori'] ?? 'Lainnya';
     String? selectedKategori;
     final kategoriLainnyaController = TextEditingController();
     bool showKategoriLainnya = false;
 
-    List<String> validKategori = ['Makanan', 'Minuman', 'Jasa', 'Kerajinan', 'Lainnya'];
+    List<String> validKategori = [
+      'Makanan',
+      'Minuman',
+      'Jasa',
+      'Kerajinan',
+      'Lainnya',
+    ];
     if (validKategori.contains(kategoriExisting)) {
       selectedKategori = kategoriExisting;
     } else {
@@ -947,7 +1192,9 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
           child: Container(
             constraints: const BoxConstraints(maxWidth: 500),
             padding: const EdgeInsets.all(24),
@@ -966,7 +1213,10 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                             color: const Color(0xFFF59E0B).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Icons.edit_rounded, color: Color(0xFFF59E0B)),
+                          child: const Icon(
+                            Icons.edit_rounded,
+                            color: Color(0xFFF59E0B),
+                          ),
                         ),
                         const SizedBox(width: 16),
                         const Expanded(
@@ -986,7 +1236,7 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                       ],
                     ),
                     const SizedBox(height: 24),
-                    
+
                     DropdownButtonFormField<String>(
                       value: selectedPemilikId,
                       hint: const Text('Pilih Pemilik'),
@@ -1004,10 +1254,11 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                       onChanged: (value) {
                         selectedPemilikId = value;
                       },
-                      validator: (value) => value == null ? 'Pemilik harus dipilih' : null,
+                      validator: (value) =>
+                          value == null ? 'Pemilik harus dipilih' : null,
                     ),
                     const SizedBox(height: 16),
-                    
+
                     TextFormField(
                       controller: namaUsahaController,
                       decoration: const InputDecoration(
@@ -1015,10 +1266,12 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                         prefixIcon: Icon(Icons.business_rounded),
                         border: OutlineInputBorder(),
                       ),
-                      validator: (value) => value?.isEmpty ?? true ? 'Nama usaha harus diisi' : null,
+                      validator: (value) => value?.isEmpty ?? true
+                          ? 'Nama usaha harus diisi'
+                          : null,
                     ),
                     const SizedBox(height: 16),
-                    
+
                     DropdownButtonFormField<String>(
                       value: selectedKategori,
                       hint: const Text('Pilih Kategori'),
@@ -1028,12 +1281,27 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                         border: OutlineInputBorder(),
                       ),
                       items: const [
-                        DropdownMenuItem(value: 'Makanan', child: Text('Makanan')),
-                        DropdownMenuItem(value: 'Minuman', child: Text('Minuman')),
+                        DropdownMenuItem(
+                          value: 'Makanan',
+                          child: Text('Makanan'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Minuman',
+                          child: Text('Minuman'),
+                        ),
                         DropdownMenuItem(value: 'Jasa', child: Text('Jasa')),
-                        DropdownMenuItem(value: 'Kerajinan', child: Text('Kerajinan')),
-                        DropdownMenuItem(value: 'Lainnya', child: Text('Lainnya')),
-                        DropdownMenuItem(value: 'custom', child: Text('-- Isi Sendiri --')),
+                        DropdownMenuItem(
+                          value: 'Kerajinan',
+                          child: Text('Kerajinan'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Lainnya',
+                          child: Text('Lainnya'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'custom',
+                          child: Text('-- Isi Sendiri --'),
+                        ),
                       ],
                       onChanged: (value) {
                         setDialogState(() {
@@ -1044,9 +1312,10 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                           }
                         });
                       },
-                      validator: (value) => value == null ? 'Kategori harus dipilih' : null,
+                      validator: (value) =>
+                          value == null ? 'Kategori harus dipilih' : null,
                     ),
-                    
+
                     if (showKategoriLainnya) ...[
                       const SizedBox(height: 16),
                       TextFormField(
@@ -1057,12 +1326,14 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                           border: OutlineInputBorder(),
                           hintText: 'Masukkan kategori custom',
                         ),
-                        validator: (value) => value?.isEmpty ?? true ? 'Kategori custom harus diisi' : null,
+                        validator: (value) => value?.isEmpty ?? true
+                            ? 'Kategori custom harus diisi'
+                            : null,
                       ),
                     ],
-                    
+
                     const SizedBox(height: 16),
-                    
+
                     TextFormField(
                       controller: deskripsiController,
                       maxLines: 3,
@@ -1073,7 +1344,7 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
+
                     TextFormField(
                       controller: noHpController,
                       keyboardType: TextInputType.phone,
@@ -1084,7 +1355,7 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
+
                     TextFormField(
                       controller: lokasiController,
                       decoration: const InputDecoration(
@@ -1094,7 +1365,7 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    
+
                     Row(
                       children: [
                         Expanded(
@@ -1116,30 +1387,34 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                               if (formKey.currentState!.validate()) {
                                 String finalKategori;
                                 if (selectedKategori == 'custom') {
-                                  finalKategori = kategoriLainnyaController.text.trim();
+                                  finalKategori = kategoriLainnyaController.text
+                                      .trim();
                                 } else {
                                   finalKategori = selectedKategori!;
                                 }
 
-                                final result = await _apiService.updateUMKM(
-                                  umkm['_id'],
-                                  {
-                                    'pemilik_id': selectedPemilikId,
-                                    'nama_usaha': namaUsahaController.text,
-                                    'deskripsi': deskripsiController.text,
-                                    'kategori': finalKategori,
-                                    'no_hp_usaha': noHpController.text,
-                                    'lokasi': lokasiController.text,
-                                  },
-                                );
+                                final result = await _apiService
+                                    .updateUMKM(umkm['_id'], {
+                                      'pemilik_id': selectedPemilikId,
+                                      'nama_usaha': namaUsahaController.text,
+                                      'deskripsi': deskripsiController.text,
+                                      'kategori': finalKategori,
+                                      'no_hp_usaha': noHpController.text,
+                                      'lokasi': lokasiController.text,
+                                    });
 
                                 if (mounted) {
                                   Navigator.pop(context);
                                   if (result['success']) {
-                                    _showSuccessSnackbar('UMKM berhasil diperbarui');
+                                    _showSuccessSnackbar(
+                                      'UMKM berhasil diperbarui',
+                                    );
                                     _loadData();
                                   } else {
-                                    _showErrorSnackbar(result['message'] ?? 'Gagal memperbarui UMKM');
+                                    _showErrorSnackbar(
+                                      result['message'] ??
+                                          'Gagal memperbarui UMKM',
+                                    );
                                   }
                                 }
                               }
@@ -1180,11 +1455,16 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
             Text('Konfirmasi Hapus'),
           ],
         ),
-        content: Text('Apakah Anda yakin ingin menghapus "$namaUsaha"? Tindakan ini tidak dapat dibatalkan.'),
+        content: Text(
+          'Apakah Anda yakin ingin menghapus "$namaUsaha"? Tindakan ini tidak dapat dibatalkan.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Batal', style: TextStyle(color: Color(0xFF64748B))),
+            child: const Text(
+              'Batal',
+              style: TextStyle(color: Color(0xFF64748B)),
+            ),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -1195,7 +1475,9 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                   _showSuccessSnackbar('UMKM berhasil dihapus');
                   _loadData();
                 } else {
-                  _showErrorSnackbar(result['message'] ?? 'Gagal menghapus UMKM');
+                  _showErrorSnackbar(
+                    result['message'] ?? 'Gagal menghapus UMKM',
+                  );
                 }
               }
             },
@@ -1240,7 +1522,10 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                         color: const Color(0xFF06B6D4).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.store_rounded, color: Color(0xFF06B6D4)),
+                      child: const Icon(
+                        Icons.store_rounded,
+                        color: Color(0xFF06B6D4),
+                      ),
                     ),
                     const SizedBox(width: 16),
                     const Expanded(
@@ -1260,13 +1545,21 @@ class _UMKMAdminPageState extends State<UMKMAdminPage> {
                   ],
                 ),
                 const SizedBox(height: 24),
-                _buildDetailRow('Nama Usaha', namaUsaha, Icons.business_rounded),
+                _buildDetailRow(
+                  'Nama Usaha',
+                  namaUsaha,
+                  Icons.business_rounded,
+                ),
                 const SizedBox(height: 16),
                 _buildDetailRow('Pemilik', namaPemilik, Icons.person_rounded),
                 const SizedBox(height: 16),
                 _buildDetailRow('Kategori', kategori, Icons.category_rounded),
                 const SizedBox(height: 16),
-                _buildDetailRow('Deskripsi', deskripsi, Icons.description_rounded),
+                _buildDetailRow(
+                  'Deskripsi',
+                  deskripsi,
+                  Icons.description_rounded,
+                ),
                 const SizedBox(height: 16),
                 _buildDetailRow('No. HP', noHp, Icons.phone_rounded),
                 const SizedBox(height: 16),
