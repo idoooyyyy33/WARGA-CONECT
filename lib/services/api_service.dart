@@ -6,8 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // --- PERHATIAN: Menggunakan IP untuk akses otomatis ---
-  // Untuk emulator Android gunakan 192.168.1.26, untuk iOS simulator gunakan localhost
-  static const String baseUrl = 'http://192.168.1.26:3000/api';
+  // Untuk emulator Android gunakan 192.168.56.1, untuk iOS simulator gunakan localhost
+  static const String baseUrl = 'http://192.168.56.1:3000/api';
 
   // Helper untuk handle response
   Map<String, dynamic> _handleResponse(http.Response response) {
@@ -48,12 +48,14 @@ class ApiService {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('token');
   }
-// DEBUG METHOD - Tambahkan di class ApiService
-Future<String?> getTokenDebug() async {
-  final token = await _getToken();
-  debugPrint('🔍 Debug Token: $token');
-  return token;
-}
+
+  // DEBUG METHOD - Tambahkan di class ApiService
+  Future<String?> getTokenDebug() async {
+    final token = await _getToken();
+    debugPrint('🔍 Debug Token: $token');
+    return token;
+  }
+
   // Save token to storage
   Future<void> _saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
@@ -76,57 +78,57 @@ Future<String?> getTokenDebug() async {
     };
   }
 
- // Login - PERBAIKAN
-Future<Map<String, dynamic>> login(String email, String password) async {
-  try {
-    debugPrint('📤 Login Request: $email');
-    
-    final response = await http.post(
-      Uri.parse('$baseUrl/users/login'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email, 'password': password}),
-    );
+  // Login - PERBAIKAN
+  Future<Map<String, dynamic>> login(String email, String password) async {
+    try {
+      debugPrint('📤 Login Request: $email');
 
-    debugPrint('📥 Login Response Status: ${response.statusCode}');
-    debugPrint('   Body: ${response.body}');
+      final response = await http.post(
+        Uri.parse('$baseUrl/users/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email, 'password': password}),
+      );
 
-    final data = jsonDecode(response.body);
+      debugPrint('📥 Login Response Status: ${response.statusCode}');
+      debugPrint('   Body: ${response.body}');
 
-    if (response.statusCode == 200) {
-      debugPrint('✅ Login Success');
-      
-      // Simpan user data ke SharedPreferences
-      if (data['user'] != null) {
-        final prefs = await SharedPreferences.getInstance();
-        final userDataString = jsonEncode(data['user']);
-        await prefs.setString('user_data', userDataString);
-        debugPrint('💾 User data saved: ${data['user']['email']}');
-        debugPrint('   Role: ${data['user']['role']}');
-      }
+      final data = jsonDecode(response.body);
 
-      // Simpan token sebagai user ID
-      if (data['user'] != null && data['user']['_id'] != null) {
-        final userId = data['user']['_id'];
-        await _saveToken(userId);
-        debugPrint('🔑 Token saved: $userId');
-        
-        // VERIFY token tersimpan
-        final savedToken = await _getToken();
-        debugPrint('✅ Verified saved token: $savedToken');
+      if (response.statusCode == 200) {
+        debugPrint('✅ Login Success');
+
+        // Simpan user data ke SharedPreferences
+        if (data['user'] != null) {
+          final prefs = await SharedPreferences.getInstance();
+          final userDataString = jsonEncode(data['user']);
+          await prefs.setString('user_data', userDataString);
+          debugPrint('💾 User data saved: ${data['user']['email']}');
+          debugPrint('   Role: ${data['user']['role']}');
+        }
+
+        // Simpan token sebagai user ID
+        if (data['user'] != null && data['user']['_id'] != null) {
+          final userId = data['user']['_id'];
+          await _saveToken(userId);
+          debugPrint('🔑 Token saved: $userId');
+
+          // VERIFY token tersimpan
+          final savedToken = await _getToken();
+          debugPrint('✅ Verified saved token: $savedToken');
+        } else {
+          debugPrint('⚠️ WARNING: User ID not found in response!');
+        }
+
+        return {'success': true, 'data': data};
       } else {
-        debugPrint('⚠️ WARNING: User ID not found in response!');
+        return {'success': false, 'message': data['message'] ?? 'Login gagal'};
       }
-
-      return {'success': true, 'data': data};
-    } else {
-      return {'success': false, 'message': data['message'] ?? 'Login gagal'};
+    } catch (e, stack) {
+      debugPrint('❌ Login Error: $e');
+      debugPrint('Stack: $stack');
+      return {'success': false, 'message': 'Terjadi kesalahan: $e'};
     }
-  } catch (e, stack) {
-    debugPrint('❌ Login Error: $e');
-    debugPrint('Stack: $stack');
-    return {'success': false, 'message': 'Terjadi kesalahan: $e'};
   }
-}
 
   // Register
   Future<Map<String, dynamic>> register(Map<String, dynamic> userData) async {
@@ -1294,7 +1296,7 @@ Future<Map<String, dynamic>> login(String email, String password) async {
     }
   }
 
- // ==================== SURAT PENGANTAR METHODS ====================
+  // ==================== SURAT PENGANTAR METHODS ====================
 
   // 1. Get Surat Pengantar (User - melihat pengajuannya sendiri)
   Future<Map<String, dynamic>> getSuratPengantar() async {
@@ -1306,7 +1308,7 @@ Future<Map<String, dynamic>> login(String email, String password) async {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        
+
         // Pastikan data adalah List
         List<dynamic> listData = [];
         if (data is List) {
@@ -1328,8 +1330,8 @@ Future<Map<String, dynamic>> login(String email, String password) async {
                 ? DateTime.parse(item['createdAt']).toString().split(' ')[0]
                 : '',
             // Safe access untuk user side
-            'nama_pengaju': (item['pengaju_id'] is Map) 
-                ? (item['pengaju_id']['nama_lengkap'] ?? 'Saya') 
+            'nama_pengaju': (item['pengaju_id'] is Map)
+                ? (item['pengaju_id']['nama_lengkap'] ?? 'Saya')
                 : 'Saya',
           };
         }).toList();
@@ -1350,29 +1352,55 @@ Future<Map<String, dynamic>> login(String email, String password) async {
   }) async {
     try {
       final token = await _getToken();
+      debugPrint('🔐 Token di create surat: ${token?.substring(0, 10)}...');
+
+      if (token == null) {
+        debugPrint('❌ Token NULL - user belum login');
+        return {
+          'success': false,
+          'message': 'Token tidak valid. Silakan login ulang.',
+        };
+      }
+
       final request = http.MultipartRequest(
         'POST',
         Uri.parse('$baseUrl/surat-pengantar'),
       );
 
-      if (token != null) {
-        request.headers['Authorization'] = 'Bearer $token';
-      }
+      request.headers['Authorization'] = 'Bearer $token';
+      debugPrint(
+        '📬 Create Surat - Authorization header set: Bearer ${token.substring(0, 10)}...',
+      );
 
       // Add text fields
       suratData.forEach((key, value) {
         if (value != null) {
           request.fields[key] = value.toString();
+          debugPrint('📬 Field: $key = ${value.toString()}');
         }
       });
 
       // Add files if provided
       if (files != null) {
         request.files.addAll(files);
+        debugPrint('📬 Files added: ${files.length} file(s)');
       }
 
+      debugPrint('📬 Sending POST request to: $baseUrl/surat-pengantar');
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
+
+      debugPrint('📬 Response Status: ${response.statusCode}');
+      debugPrint('📬 Response Body: ${response.body}');
+
+      if (response.statusCode != 201 && response.statusCode != 200) {
+        try {
+          final errorData = jsonDecode(response.body);
+          debugPrint('❌ Error response: $errorData');
+        } catch (e) {
+          debugPrint('❌ Error response (parsing failed): ${response.body}');
+        }
+      }
 
       return _handleResponse(response);
     } catch (e) {
@@ -1387,11 +1415,14 @@ Future<Map<String, dynamic>> login(String email, String password) async {
     try {
       final token = await _getToken();
       if (token == null) {
-        return {'success': false, 'message': 'Token tidak valid. Silakan login ulang.'};
+        return {
+          'success': false,
+          'message': 'Token tidak valid. Silakan login ulang.',
+        };
       }
       debugPrint('🔍 Fetching Surat Pengantar Admin...');
       final headers = await _getHeaders();
-      
+
       final response = await http.get(
         Uri.parse('$baseUrl/surat-pengantar/admin'),
         headers: headers,
@@ -1407,7 +1438,6 @@ Future<Map<String, dynamic>> login(String email, String password) async {
 
         // 2. Transformasi Data (Mapping)
         final transformedData = rawList.map((item) {
-          
           // --- LOGIKA ANTI CRASH UNTUK NAMA PENGAJU ---
           String namaPengaju = 'Anonim';
           String emailPengaju = '-';
@@ -1416,7 +1446,7 @@ Future<Map<String, dynamic>> login(String email, String password) async {
           if (item['pengaju_id'] != null && item['pengaju_id'] is Map) {
             namaPengaju = item['pengaju_id']['nama_lengkap'] ?? 'Anonim';
             emailPengaju = item['pengaju_id']['email'] ?? '-';
-          } 
+          }
           // --------------------------------------------
 
           return {
@@ -1427,6 +1457,8 @@ Future<Map<String, dynamic>> login(String email, String password) async {
             'status_pengajuan': item['status_pengajuan'] ?? 'Diajukan',
             'tanggapan_admin': item['tanggapan_admin'] ?? '',
             'file_surat': item['file_surat'] ?? '',
+            // lampiran_dokumen may contain ktp, kk, dokumen_lain array with {nama_dokumen, file_url}
+            'lampiran_dokumen': item['lampiran_dokumen'] ?? {},
             'tanggal_pengajuan': item['createdAt'] != null
                 ? DateTime.parse(item['createdAt']).toString().split(' ')[0]
                 : '-',
@@ -1453,6 +1485,17 @@ Future<Map<String, dynamic>> login(String email, String password) async {
     String? fileUrl,
   ) async {
     try {
+      final token = await _getToken();
+      debugPrint('🔐 Token di update status: ${token?.substring(0, 10)}...');
+
+      if (token == null) {
+        debugPrint('❌ Token NULL - user belum login atau token expired');
+        return {
+          'success': false,
+          'message': 'Token tidak valid. Silakan login ulang.',
+        };
+      }
+
       final requestBody = {
         'status_pengajuan': status,
         'tanggapan_admin': tanggapan,
@@ -1462,11 +1505,35 @@ Future<Map<String, dynamic>> login(String email, String password) async {
         requestBody['file_surat'] = fileUrl;
       }
 
+      final headers = await _getHeaders();
+      debugPrint('📝 updateStatusSuratPengantar - Headers: $headers');
+      debugPrint('📝 updateStatusSuratPengantar - Request Body: $requestBody');
+      debugPrint(
+        '📝 updateStatusSuratPengantar - URL: $baseUrl/surat-pengantar/$id',
+      );
+
       final response = await http.put(
         Uri.parse('$baseUrl/surat-pengantar/$id'),
-        headers: await _getHeaders(),
+        headers: headers,
         body: jsonEncode(requestBody),
       );
+
+      debugPrint(
+        '📝 updateStatusSuratPengantar - Response Status: ${response.statusCode}',
+      );
+      debugPrint(
+        '📝 updateStatusSuratPengantar - Response Body: ${response.body}',
+      );
+
+      if (response.statusCode != 200) {
+        try {
+          final errorData = jsonDecode(response.body);
+          debugPrint('❌ Error response: $errorData');
+        } catch (e) {
+          debugPrint('❌ Error response (parsing failed): ${response.body}');
+        }
+      }
+
       return _handleResponse(response);
     } catch (e) {
       return {'success': false, 'message': 'Terjadi kesalahan: $e'};

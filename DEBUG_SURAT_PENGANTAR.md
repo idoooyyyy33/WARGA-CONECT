@@ -52,7 +52,7 @@ Perhatikan logs:
 Perhatikan logs ketika membuka halaman admin surat pengantar:
 ```
 🔍 Fetching Surat Pengantar Admin...
-   URL: http://192.168.1.26:3000/api/surat-pengantar/admin
+   URL: http://192.168.56.1:3000/api/surat-pengantar/admin
 
 📡 Response Status: [status code]
    Body: [response data]
@@ -110,7 +110,7 @@ Response: [jumlah surat]
 
 ```bash
 # Test GET /api/surat-pengantar/admin
-curl -X GET http://192.168.1.26:3000/api/surat-pengantar/admin \
+curl -X GET http://192.168.56.1:3000/api/surat-pengantar/admin \
   -H "Authorization: Bearer {USER_ID}" \
   -H "Content-Type: application/json"
 ```
@@ -271,7 +271,7 @@ Jika ada error:
 ## Quick Checklist
 
 - [ ] Backend running (`npm start`)
-- [ ] IP address benar (`192.168.1.26`)
+- [ ] IP address benar (`192.168.56.1`)
 - [ ] User sudah login
 - [ ] Token ada di LocalStorage
 - [ ] User yang admin punya role `ketua_rt`

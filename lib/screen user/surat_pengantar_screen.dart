@@ -1,9 +1,9 @@
 // File: surat_pengantar_screen.dart
-import 'dart:io';
-
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import '../services/api_service.dart';
 
@@ -86,9 +86,7 @@ class _SuratPengantarScreenState extends State<SuratPengantarScreen> {
                     onPressed: () {
                       // TODO: Implement download file
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Download: Coming soon'),
-                        ),
+                        const SnackBar(content: Text('Download: Coming soon')),
                       );
                     },
                     icon: const Icon(Icons.download),
@@ -123,10 +121,7 @@ class _SuratPengantarScreenState extends State<SuratPengantarScreen> {
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            value,
-            style: const TextStyle(fontSize: 14),
-          ),
+          Text(value, style: const TextStyle(fontSize: 14)),
         ],
       ),
     );
@@ -193,19 +188,21 @@ class _SuratPengantarScreenState extends State<SuratPengantarScreen> {
                           margin: const EdgeInsets.only(bottom: 12),
                           child: ListTile(
                             leading: CircleAvatar(
-                              backgroundColor:
-                                  _getStatusColor(surat['status_pengajuan'])
-                                      .withValues(alpha: 0.2),
+                              backgroundColor: _getStatusColor(
+                                surat['status_pengajuan'],
+                              ).withValues(alpha: 0.2),
                               child: Icon(
                                 _getStatusIcon(surat['status_pengajuan']),
-                                color:
-                                    _getStatusColor(surat['status_pengajuan']),
+                                color: _getStatusColor(
+                                  surat['status_pengajuan'],
+                                ),
                               ),
                             ),
                             title: Text(
                               surat['jenis_surat'],
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -249,8 +246,10 @@ class _SuratPengantarScreenState extends State<SuratPengantarScreen> {
                                 ),
                               ],
                             ),
-                            trailing: const Icon(Icons.arrow_forward_ios,
-                                size: 16),
+                            trailing: const Icon(
+                              Icons.arrow_forward_ios,
+                              size: 16,
+                            ),
                             onTap: () => _showDetailDialog(surat),
                           ),
                         );
@@ -280,19 +279,18 @@ class _AddSuratDialogState extends State<_AddSuratDialog> {
   final _keperluanController = TextEditingController();
   final _keteranganController = TextEditingController();
 
-  String _jenisSurat = 'Surat Keterangan Domisili';
-  List<File> _selectedFiles = [];
+  String _jenisSurat = 'Domisili'; // Match dengan list options
+  List<PlatformFile> _selectedFiles = []; // Changed from List<File>
   bool _isLoading = false;
 
   final List<String> _jenisSuratOptions = [
-    'Surat Keterangan Domisili',
-    'Surat Keterangan Tidak Mampu',
-    'Surat Keterangan Usaha',
-    'Surat Pengantar KTP',
-    'Surat Pengantar KK',
-    'Surat Keterangan Kelahiran',
-    'Surat Keterangan Kematian',
-    'Surat Keterangan Pindah',
+    'KTP',
+    'KK',
+    'SKCK',
+    'Domisili',
+    'Kelahiran',
+    'Kematian',
+    'Nikah',
     'Lainnya',
   ];
 
@@ -306,15 +304,50 @@ class _AddSuratDialogState extends State<_AddSuratDialog> {
 
       if (result != null) {
         setState(() {
-          _selectedFiles = result.paths.map((path) => File(path!)).toList();
+          _selectedFiles = result.files; // PlatformFile list dari file picker
+          debugPrint('📋 Files selected: ${_selectedFiles.length}');
+          for (var f in _selectedFiles) {
+            if (kIsWeb) {
+              // On web, accessing `path` may throw — use bytes info instead
+              debugPrint(
+                '📋 File: ${f.name}, Size: ${f.size}, Bytes: ${f.bytes?.length ?? 'null'}',
+              );
+            } else {
+              debugPrint(
+                '📋 File: ${f.name}, Size: ${f.size}, Path: ${f.path}',
+              );
+            }
+          }
         });
       }
     } catch (e) {
+      debugPrint('❌ Error saat memilih file: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error memilih file: $e')),
+          SnackBar(
+            content: Text('Error memilih file: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
+    }
+  }
+
+  // Map filename extension to MediaType for multipart uploads
+  MediaType? _mediaTypeForFileName(String name) {
+    final parts = name.split('.');
+    if (parts.length < 2) return null;
+    final ext = parts.last.toLowerCase();
+    switch (ext) {
+      case 'jpg':
+      case 'jpeg':
+        return MediaType('image', 'jpeg');
+      case 'png':
+        return MediaType('image', 'png');
+      case 'pdf':
+        return MediaType('application', 'pdf');
+      default:
+        return null;
     }
   }
 
@@ -325,6 +358,20 @@ class _AddSuratDialogState extends State<_AddSuratDialog> {
 
     try {
       final token = await _apiService.getTokenDebug();
+      debugPrint('🔐 Token di submit: ${token?.substring(0, 10)}...');
+
+      if (token == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Token tidak valid. Silakan login ulang.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
 
       final suratData = {
         'pengaju_id': token,
@@ -333,23 +380,72 @@ class _AddSuratDialogState extends State<_AddSuratDialog> {
         'keterangan': _keteranganController.text.trim(),
       };
 
+      debugPrint('📋 Surat Data: $suratData');
+
       List<http.MultipartFile>? files;
       if (_selectedFiles.isNotEmpty) {
         files = [];
-        for (var file in _selectedFiles) {
-          files.add(
-            await http.MultipartFile.fromPath(
-              'lampiran',
-              file.path,
-            ),
-          );
+        try {
+          for (var file in _selectedFiles) {
+            debugPrint('📋 Processing file: ${file.name}');
+
+            if (kIsWeb) {
+              // On web, PlatformFile.path is often null — use bytes
+              if (file.bytes == null) {
+                debugPrint('❌ File bytes null on web: ${file.name}');
+                throw Exception('File.bytes tidak tersedia: ${file.name}');
+              }
+
+              final mt = _mediaTypeForFileName(file.name);
+              final multipartFile = http.MultipartFile.fromBytes(
+                'files',
+                file.bytes!,
+                filename: file.name,
+                contentType: mt,
+              );
+              files.add(multipartFile);
+              debugPrint('✅ File added successfully (bytes): ${file.name}');
+            } else {
+              // Mobile / desktop: use path
+              if (file.path == null) {
+                debugPrint('❌ File path is null: ${file.name}');
+                throw Exception('File path tidak tersedia: ${file.name}');
+              }
+
+              debugPrint('📋 Creating MultipartFile from path...');
+              final mt = _mediaTypeForFileName(file.name);
+              final multipartFile = await http.MultipartFile.fromPath(
+                'files',
+                file.path!,
+                contentType: mt,
+              );
+              files.add(multipartFile);
+              debugPrint('✅ File added successfully: ${file.path}');
+            }
+          }
+          debugPrint('📋 Total files: ${files.length}');
+        } catch (fileError) {
+          debugPrint('❌ Error processing files: $fileError');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error memproses file: $fileError'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          if (mounted) setState(() => _isLoading = false);
+          return;
         }
       }
 
+      debugPrint('📋 Calling createSuratPengantar...');
       final response = await _apiService.createSuratPengantar(
         suratData,
         files: files,
       );
+
+      debugPrint('📋 Response: $response');
 
       if (mounted) {
         if (response['success']) {
@@ -368,6 +464,13 @@ class _AddSuratDialogState extends State<_AddSuratDialog> {
             ),
           );
         }
+      }
+    } catch (e) {
+      debugPrint('❌ Error in _submit: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -422,9 +525,11 @@ class _AddSuratDialogState extends State<_AddSuratDialog> {
               OutlinedButton.icon(
                 onPressed: _pickFiles,
                 icon: const Icon(Icons.attach_file),
-                label: Text(_selectedFiles.isEmpty
-                    ? 'Lampirkan Dokumen (Opsional)'
-                    : '${_selectedFiles.length} file dipilih'),
+                label: Text(
+                  _selectedFiles.isEmpty
+                      ? 'Lampirkan Dokumen (Opsional)'
+                      : '${_selectedFiles.length} file dipilih',
+                ),
               ),
               if (_selectedFiles.isNotEmpty) ...[
                 const SizedBox(height: 8),
@@ -433,10 +538,7 @@ class _AddSuratDialogState extends State<_AddSuratDialog> {
                   runSpacing: 8,
                   children: _selectedFiles.map((file) {
                     return Chip(
-                      label: Text(
-                        file.path.split('/').last,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      label: Text(file.name, overflow: TextOverflow.ellipsis),
                       deleteIcon: const Icon(Icons.close, size: 18),
                       onDeleted: () {
                         setState(() => _selectedFiles.remove(file));

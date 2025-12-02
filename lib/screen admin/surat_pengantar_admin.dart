@@ -1,6 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 import '../services/api_service.dart';
+import '../utils/web_open.dart';
 
 // ============================================================================
 // 1. CUSTOM PAINTERS (Background Header - Sama dengan Dashboard)
@@ -16,9 +21,17 @@ class ModernPatternPainter extends CustomPainter {
     final path = Path();
     path.moveTo(0, size.height * 0.7);
     path.quadraticBezierTo(
-        size.width * 0.25, size.height * 0.6, size.width * 0.5, size.height * 0.8);
+      size.width * 0.25,
+      size.height * 0.6,
+      size.width * 0.5,
+      size.height * 0.8,
+    );
     path.quadraticBezierTo(
-        size.width * 0.75, size.height * 1.0, size.width, size.height * 0.8);
+      size.width * 0.75,
+      size.height * 1.0,
+      size.width,
+      size.height * 0.8,
+    );
     path.lineTo(size.width, size.height);
     path.lineTo(0, size.height);
     path.close();
@@ -40,7 +53,11 @@ class GeometricPatternPainter extends CustomPainter {
 
     final double step = 40;
     for (double i = -size.height; i < size.width; i += step) {
-      canvas.drawLine(Offset(i, size.height), Offset(i + size.height, 0), paint);
+      canvas.drawLine(
+        Offset(i, size.height),
+        Offset(i + size.height, 0),
+        paint,
+      );
     }
   }
 
@@ -57,7 +74,8 @@ class SuratPengantarAdminScreen extends StatefulWidget {
   const SuratPengantarAdminScreen({super.key, required this.onBackPressed});
 
   @override
-  State<SuratPengantarAdminScreen> createState() => _SuratPengantarAdminScreenState();
+  State<SuratPengantarAdminScreen> createState() =>
+      _SuratPengantarAdminScreenState();
 }
 
 class _SuratPengantarAdminScreenState extends State<SuratPengantarAdminScreen>
@@ -76,20 +94,34 @@ class _SuratPengantarAdminScreenState extends State<SuratPengantarAdminScreen>
   late Animation<Offset> _headerSlide;
 
   // Filter Status Tabs
-  final List<String> _statusFilters = ['Semua', 'Diajukan', 'Diproses', 'Disetujui', 'Ditolak'];
+  final List<String> _statusFilters = [
+    'Semua',
+    'Diajukan',
+    'Diproses',
+    'Disetujui',
+    'Ditolak',
+  ];
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: _statusFilters.length, vsync: this);
-    
+
     // Setup Animations
-    _headerAnim = AnimationController(vsync: this, duration: const Duration(milliseconds: 1000));
-    _contentAnim = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
+    _headerAnim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+    _contentAnim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
 
     _headerFade = CurvedAnimation(parent: _headerAnim, curve: Curves.easeOut);
-    _headerSlide = Tween<Offset>(begin: const Offset(0, -0.3), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _headerAnim, curve: Curves.easeOutCubic));
+    _headerSlide = Tween<Offset>(
+      begin: const Offset(0, -0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _headerAnim, curve: Curves.easeOutCubic));
 
     // Listeners
     _tabController.addListener(_applyFilters);
@@ -146,10 +178,12 @@ class _SuratPengantarAdminScreenState extends State<SuratPengantarAdminScreen>
         final nama = (surat['nama_pengaju'] ?? '').toString().toLowerCase();
         final jenis = (surat['jenis_surat'] ?? '').toString().toLowerCase();
         final matchesQuery = nama.contains(query) || jenis.contains(query);
-        
+
         if (statusLabel == 'Semua') return matchesQuery;
-        
-        final statusSurat = (surat['status_pengajuan'] ?? '').toString().toLowerCase();
+
+        final statusSurat = (surat['status_pengajuan'] ?? '')
+            .toString()
+            .toLowerCase();
         return matchesQuery && statusSurat == statusLabel.toLowerCase();
       }).toList();
     });
@@ -159,16 +193,18 @@ class _SuratPengantarAdminScreenState extends State<SuratPengantarAdminScreen>
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => SuratDetailDialog(
-        surat: surat,
-        onStatusUpdated: _loadSurat,
-      ),
+      builder: (_) =>
+          SuratDetailDialog(surat: surat, onStatusUpdated: _loadSurat),
     );
   }
 
   void _showSnackBar(String msg, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: color, behavior: SnackBarBehavior.floating),
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
@@ -194,22 +230,30 @@ class _SuratPengantarAdminScreenState extends State<SuratPengantarAdminScreen>
                 ),
               ),
               if (_isLoading)
-                const SliverFillRemaining(child: Center(child: CircularProgressIndicator(color: Color(0xFF1E293B))))
+                const SliverFillRemaining(
+                  child: Center(
+                    child: CircularProgressIndicator(color: Color(0xFF1E293B)),
+                  ),
+                )
               else if (_filteredSurat.isEmpty)
                 SliverFillRemaining(child: _buildEmptyState())
               else
                 SliverPadding(
-                  padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24, vertical: 16),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isMobile ? 16 : 24,
+                    vertical: 16,
+                  ),
                   sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        return FadeTransition(
-                          opacity: _contentAnim,
-                          child: _buildSuratCard(index, _filteredSurat[index], isMobile)
-                        );
-                      },
-                      childCount: _filteredSurat.length,
-                    ),
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      return FadeTransition(
+                        opacity: _contentAnim,
+                        child: _buildSuratCard(
+                          index,
+                          _filteredSurat[index],
+                          isMobile,
+                        ),
+                      );
+                    }, childCount: _filteredSurat.length),
                   ),
                 ),
             ],
@@ -230,13 +274,19 @@ class _SuratPengantarAdminScreenState extends State<SuratPengantarAdminScreen>
         ),
         borderRadius: BorderRadius.circular(isMobile ? 20 : 28),
         boxShadow: [
-          BoxShadow(color: const Color(0xFF1E293B).withOpacity(0.4), blurRadius: 30, offset: const Offset(0, 10)),
+          BoxShadow(
+            color: const Color(0xFF1E293B).withOpacity(0.4),
+            blurRadius: 30,
+            offset: const Offset(0, 10),
+          ),
         ],
       ),
       child: Stack(
         children: [
           Positioned.fill(child: CustomPaint(painter: ModernPatternPainter())),
-          Positioned.fill(child: CustomPaint(painter: GeometricPatternPainter())),
+          Positioned.fill(
+            child: CustomPaint(painter: GeometricPatternPainter()),
+          ),
           Padding(
             padding: EdgeInsets.all(isMobile ? 20 : 32),
             child: Column(
@@ -245,7 +295,10 @@ class _SuratPengantarAdminScreenState extends State<SuratPengantarAdminScreen>
                 Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                      icon: const Icon(
+                        Icons.arrow_back_rounded,
+                        color: Colors.white,
+                      ),
                       onPressed: widget.onBackPressed,
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
@@ -253,7 +306,11 @@ class _SuratPengantarAdminScreenState extends State<SuratPengantarAdminScreen>
                     const SizedBox(width: 16),
                     const Text(
                       'Manajemen Surat',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
                     ),
                   ],
                 ),
@@ -270,9 +327,14 @@ class _SuratPengantarAdminScreenState extends State<SuratPengantarAdminScreen>
                     controller: _searchController,
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
-                      icon: Icon(Icons.search_rounded, color: Colors.white.withOpacity(0.7)),
+                      icon: Icon(
+                        Icons.search_rounded,
+                        color: Colors.white.withOpacity(0.7),
+                      ),
                       hintText: 'Cari nama atau jenis surat...',
-                      hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+                      hintStyle: TextStyle(
+                        color: Colors.white.withOpacity(0.5),
+                      ),
                       border: InputBorder.none,
                     ),
                   ),
@@ -291,12 +353,23 @@ class _SuratPengantarAdminScreenState extends State<SuratPengantarAdminScreen>
                     labelColor: Colors.white,
                     unselectedLabelColor: Colors.white60,
                     dividerColor: Colors.transparent,
-                    tabs: _statusFilters.map((text) => Tab(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Text(text, style: const TextStyle(fontWeight: FontWeight.w600)),
-                      ),
-                    )).toList(),
+                    tabs: _statusFilters
+                        .map(
+                          (text) => Tab(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                              child: Text(
+                                text,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
                   ),
                 ),
               ],
@@ -312,11 +385,19 @@ class _SuratPengantarAdminScreenState extends State<SuratPengantarAdminScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.mark_email_unread_rounded, size: 80, color: Colors.grey[300]),
+          Icon(
+            Icons.mark_email_unread_rounded,
+            size: 80,
+            color: Colors.grey[300],
+          ),
           const SizedBox(height: 16),
           Text(
             'Tidak ada data surat',
-            style: TextStyle(fontSize: 16, color: Colors.grey[500], fontWeight: FontWeight.w600),
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[500],
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -368,26 +449,40 @@ class _SuratPengantarAdminScreenState extends State<SuratPengantarAdminScreen>
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: color.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               status.toString().toUpperCase(),
-                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: color,
+                              ),
                             ),
                           ),
                           Text(
                             _formatDate(surat['tanggal_pengajuan']),
-                            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey[500],
+                            ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 8),
                       Text(
                         surat['jenis_surat'] ?? 'Surat Pengantar',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1E293B)),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Color(0xFF1E293B),
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -401,7 +496,10 @@ class _SuratPengantarAdminScreenState extends State<SuratPengantarAdminScreen>
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right_rounded, color: Color(0xFFCBD5E1)),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: Color(0xFFCBD5E1),
+                ),
               ],
             ),
           ),
@@ -412,19 +510,27 @@ class _SuratPengantarAdminScreenState extends State<SuratPengantarAdminScreen>
 
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
-      case 'disetujui': return const Color(0xFF10B981);
-      case 'ditolak': return const Color(0xFFEF4444);
-      case 'diproses': return const Color(0xFFF59E0B);
-      default: return const Color(0xFF3B82F6);
+      case 'disetujui':
+        return const Color(0xFF10B981);
+      case 'ditolak':
+        return const Color(0xFFEF4444);
+      case 'diproses':
+        return const Color(0xFFF59E0B);
+      default:
+        return const Color(0xFF3B82F6);
     }
   }
 
   IconData _getStatusIcon(String status) {
     switch (status.toLowerCase()) {
-      case 'disetujui': return Icons.check_circle_outline_rounded;
-      case 'ditolak': return Icons.highlight_off_rounded;
-      case 'diproses': return Icons.history_edu_rounded;
-      default: return Icons.mark_email_unread_outlined;
+      case 'disetujui':
+        return Icons.check_circle_outline_rounded;
+      case 'ditolak':
+        return Icons.highlight_off_rounded;
+      case 'diproses':
+        return Icons.history_edu_rounded;
+      default:
+        return Icons.mark_email_unread_outlined;
     }
   }
 
@@ -467,16 +573,28 @@ class _SuratDetailDialogState extends State<SuratDetailDialog> {
   void initState() {
     super.initState();
     // Normalize status string from API
-    String rawStatus = (widget.surat['status_pengajuan'] ?? 'Diajukan').toString();
-    _selectedStatus = rawStatus.substring(0, 1).toUpperCase() + rawStatus.substring(1).toLowerCase();
-    
+    String rawStatus = (widget.surat['status_pengajuan'] ?? 'Diajukan')
+        .toString();
+    _selectedStatus =
+        rawStatus.substring(0, 1).toUpperCase() +
+        rawStatus.substring(1).toLowerCase();
+
     // Fallback if status not recognized
-    if (!['Diajukan', 'Diproses', 'Disetujui', 'Ditolak'].contains(_selectedStatus)) {
+    if (![
+      'Diajukan',
+      'Diproses',
+      'Disetujui',
+      'Ditolak',
+    ].contains(_selectedStatus)) {
       _selectedStatus = 'Diajukan';
     }
 
-    _tanggapanCtrl = TextEditingController(text: widget.surat['tanggapan_admin'] ?? '');
-    _fileLinkCtrl = TextEditingController(text: widget.surat['file_surat'] ?? '');
+    _tanggapanCtrl = TextEditingController(
+      text: widget.surat['tanggapan_admin'] ?? '',
+    );
+    _fileLinkCtrl = TextEditingController(
+      text: widget.surat['file_surat'] ?? '',
+    );
   }
 
   @override
@@ -491,7 +609,7 @@ class _SuratDetailDialogState extends State<SuratDetailDialog> {
     try {
       final res = await _apiService.updateStatusSuratPengantar(
         widget.surat['id'].toString(),
-        _selectedStatus.toLowerCase(), 
+        _selectedStatus, // Kirim format original: 'Diajukan', 'Diproses', 'Disetujui', 'Ditolak'
         _tanggapanCtrl.text.trim(),
         _fileLinkCtrl.text.trim().isEmpty ? null : _fileLinkCtrl.text.trim(),
       );
@@ -502,16 +620,25 @@ class _SuratDetailDialogState extends State<SuratDetailDialog> {
         Navigator.pop(context);
         widget.onStatusUpdated();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Status berhasil diperbarui'), backgroundColor: Color(0xFF10B981)),
+          const SnackBar(
+            content: Text('Status berhasil diperbarui'),
+            backgroundColor: Color(0xFF10B981),
+          ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(res['message'] ?? 'Gagal memperbarui'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(res['message'] ?? 'Gagal memperbarui'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Terjadi kesalahan jaringan'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('Terjadi kesalahan jaringan'),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -557,18 +684,27 @@ class _SuratDetailDialogState extends State<SuratDetailDialog> {
                     // BAGIAN 1: INFO PENGAJU
                     _buildSectionTitle('Pengaju'),
                     const SizedBox(height: 12),
-                    _buildInfoField('Nama Lengkap Warga', widget.surat['nama_pengaju']),
+                    _buildInfoField(
+                      'Nama Lengkap Warga',
+                      widget.surat['nama_pengaju'],
+                    ),
                     _buildInfoField('Email', widget.surat['email_pengaju']),
                     _buildInfoField('Keperluan', widget.surat['keperluan']),
                     _buildInfoField(
-                      'Keterangan', 
-                      widget.surat['keterangan'] ?? '-', 
-                      isLongText: true
+                      'Keterangan',
+                      widget.surat['keterangan'] ?? '-',
+                      isLongText: true,
                     ),
                     _buildInfoField(
-                      'Tanggal Pengajuan', 
-                      _formatDate(widget.surat['tanggal_pengajuan'])
+                      'Tanggal Pengajuan',
+                      _formatDate(widget.surat['tanggal_pengajuan']),
                     ),
+
+                    // Lampiran Dokumen (jika ada)
+                    const SizedBox(height: 12),
+                    _buildSectionTitle('Lampiran Dokumen'),
+                    const SizedBox(height: 8),
+                    _buildAttachmentsSection(widget.surat['lampiran_dokumen']),
 
                     const SizedBox(height: 24),
                     const Divider(thickness: 1, color: Color(0xFFE2E8F0)),
@@ -577,24 +713,27 @@ class _SuratDetailDialogState extends State<SuratDetailDialog> {
                     // BAGIAN 2: UPDATE STATUS (ADMIN)
                     _buildSectionTitle('Update Status'),
                     const SizedBox(height: 16),
-                    
+
                     // Dropdown Status
                     DropdownButtonFormField<String>(
                       value: _selectedStatus,
                       decoration: _inputDecoration('Status Pengajuan'),
                       items: ['Diajukan', 'Diproses', 'Disetujui', 'Ditolak']
-                          .map((status) => DropdownMenuItem(
-                                value: status,
-                                child: Text(
-                                  status, 
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: _getStatusColor(status),
-                                  )
+                          .map(
+                            (status) => DropdownMenuItem(
+                              value: status,
+                              child: Text(
+                                status,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: _getStatusColor(status),
                                 ),
-                              ))
+                              ),
+                            ),
+                          )
                           .toList(),
-                      onChanged: (val) => setState(() => _selectedStatus = val!),
+                      onChanged: (val) =>
+                          setState(() => _selectedStatus = val!),
                     ),
                     const SizedBox(height: 16),
 
@@ -605,7 +744,8 @@ class _SuratDetailDialogState extends State<SuratDetailDialog> {
                       minLines: 2,
                       style: const TextStyle(fontSize: 14),
                       decoration: _inputDecoration('Tanggapan Admin').copyWith(
-                        hintText: 'Contoh: Silakan ambil surat besok jam 09.00...',
+                        hintText:
+                            'Contoh: Silakan ambil surat besok jam 09.00...',
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -614,10 +754,16 @@ class _SuratDetailDialogState extends State<SuratDetailDialog> {
                     TextField(
                       controller: _fileLinkCtrl,
                       style: const TextStyle(fontSize: 14),
-                      decoration: _inputDecoration('Link File Surat (PDF / G-Drive)').copyWith(
-                        prefixIcon: const Icon(Icons.link_rounded, color: Color(0xFF64748B)),
-                        hintText: 'https://...',
-                      ),
+                      decoration:
+                          _inputDecoration(
+                            'Link File Surat (PDF / G-Drive)',
+                          ).copyWith(
+                            prefixIcon: const Icon(
+                              Icons.link_rounded,
+                              color: Color(0xFF64748B),
+                            ),
+                            hintText: 'https://...',
+                          ),
                     ),
                   ],
                 ),
@@ -637,10 +783,15 @@ class _SuratDetailDialogState extends State<SuratDetailDialog> {
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         side: const BorderSide(color: Color(0xFFCBD5E1)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         foregroundColor: const Color(0xFF475569),
                       ),
-                      child: const Text('Batal', style: TextStyle(fontWeight: FontWeight.w700)),
+                      child: const Text(
+                        'Batal',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -651,11 +802,26 @@ class _SuratDetailDialogState extends State<SuratDetailDialog> {
                         backgroundColor: const Color(0xFF1E293B),
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                       child: _isSaving
-                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Text('Simpan Perubahan', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white)),
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              'Simpan Perubahan',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
                     ),
                   ),
                 ],
@@ -682,7 +848,11 @@ class _SuratDetailDialogState extends State<SuratDetailDialog> {
     );
   }
 
-  Widget _buildInfoField(String label, String? value, {bool isLongText = false}) {
+  Widget _buildInfoField(
+    String label,
+    String? value, {
+    bool isLongText = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Column(
@@ -697,28 +867,32 @@ class _SuratDetailDialogState extends State<SuratDetailDialog> {
             ),
           ),
           const SizedBox(height: 4),
-          isLongText 
-          ? Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: Text(
-                value ?? '-',
-                style: const TextStyle(fontSize: 14, color: Color(0xFF334155), height: 1.5),
-              ),
-            )
-          : Text(
-              value ?? '-',
-              style: const TextStyle(
-                fontSize: 15, 
-                fontWeight: FontWeight.w600, 
-                color: Color(0xFF1E293B)
-              ),
-            ),
+          isLongText
+              ? Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Text(
+                    value ?? '-',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF334155),
+                      height: 1.5,
+                    ),
+                  ),
+                )
+              : Text(
+                  value ?? '-',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
         ],
       ),
     );
@@ -728,7 +902,10 @@ class _SuratDetailDialogState extends State<SuratDetailDialog> {
     return InputDecoration(
       labelText: label,
       labelStyle: const TextStyle(color: Color(0xFF64748B)),
-      floatingLabelStyle: const TextStyle(color: Color(0xFF1E293B), fontWeight: FontWeight.w600),
+      floatingLabelStyle: const TextStyle(
+        color: Color(0xFF1E293B),
+        fontWeight: FontWeight.w600,
+      ),
       filled: true,
       fillColor: Colors.white,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -757,12 +934,146 @@ class _SuratDetailDialogState extends State<SuratDetailDialog> {
     }
   }
 
+  Widget _buildAttachmentsSection(dynamic lampiran) {
+    if (lampiran == null) {
+      return const Text('-', style: TextStyle(color: Color(0xFF334155)));
+    }
+
+    final List<Widget> rows = [];
+
+    // ktp
+    if (lampiran['ktp'] != null && lampiran['ktp'].toString().isNotEmpty) {
+      final url = _resolveFileUrl(lampiran['ktp'].toString());
+      rows.add(_attachmentTile('KTP', url));
+    }
+
+    // kk
+    if (lampiran['kk'] != null && lampiran['kk'].toString().isNotEmpty) {
+      final url = _resolveFileUrl(lampiran['kk'].toString());
+      rows.add(_attachmentTile('KK', url));
+    }
+
+    // dokumen_lain array
+    if (lampiran['dokumen_lain'] != null && lampiran['dokumen_lain'] is List) {
+      for (var d in lampiran['dokumen_lain']) {
+        final name = d['nama_dokumen'] ?? 'Dokumen';
+        final fileUrl = d['file_url'] ?? d['fileUrl'] ?? '';
+        if (fileUrl.toString().isNotEmpty) {
+          rows.add(
+            _attachmentTile(
+              name.toString(),
+              _resolveFileUrl(fileUrl.toString()),
+            ),
+          );
+        }
+      }
+    }
+
+    if (rows.isEmpty)
+      return const Text('-', style: TextStyle(color: Color(0xFF334155)));
+
+    return Column(children: rows);
+  }
+
+  Widget _attachmentTile(String title, String url) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          IconButton(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: url));
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Link disalin ke clipboard')),
+                );
+              }
+            },
+            icon: const Icon(
+              Icons.copy_rounded,
+              size: 20,
+              color: Color(0xFF64748B),
+            ),
+            tooltip: 'Salin link',
+          ),
+          IconButton(
+            onPressed: () async {
+              try {
+                bool opened = false;
+                if (kIsWeb) {
+                  opened = await openUrl(url);
+                } else {
+                  final uri = Uri.tryParse(url);
+                  if (uri != null && await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    opened = true;
+                  }
+                }
+
+                if (!opened) {
+                  await Clipboard.setData(ClipboardData(text: url));
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Link disalin ke clipboard (fallback)'),
+                      ),
+                    );
+                  }
+                }
+              } catch (e) {
+                await Clipboard.setData(ClipboardData(text: url));
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Gagal membuka link, disalin ke clipboard. Error: $e',
+                      ),
+                    ),
+                  );
+                }
+              }
+            },
+            icon: const Icon(
+              Icons.open_in_new_rounded,
+              size: 20,
+              color: Color(0xFF64748B),
+            ),
+            tooltip: 'Buka link',
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _resolveFileUrl(String path) {
+    // ApiService.baseUrl contains '/api' suffix. Convert to origin and append path.
+    try {
+      final origin = ApiService.baseUrl.replaceFirst('/api', '');
+      if (path.startsWith('http')) return path;
+      // ensure path starts with '/'
+      if (!path.startsWith('/')) path = '/$path';
+      return '$origin$path';
+    } catch (e) {
+      return path;
+    }
+  }
+
   Color _getStatusColor(String status) {
     switch (status) {
-      case 'Disetujui': return const Color(0xFF10B981);
-      case 'Ditolak': return const Color(0xFFEF4444);
-      case 'Diproses': return const Color(0xFFF59E0B);
-      default: return const Color(0xFF3B82F6);
+      case 'Disetujui':
+        return const Color(0xFF10B981);
+      case 'Ditolak':
+        return const Color(0xFFEF4444);
+      case 'Diproses':
+        return const Color(0xFFF59E0B);
+      default:
+        return const Color(0xFF3B82F6);
     }
   }
 }
