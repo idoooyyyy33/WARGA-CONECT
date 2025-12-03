@@ -91,7 +91,7 @@ Lihat di F12 Console:
    Keperluan: hilang
    Files: 1
 📤 Creating Surat Pengantar...
-   URL: http://192.168.1.34:3000/api/surat-pengantar
+   URL: http://10.61.28.85:3000/api/surat-pengantar
    Headers: {...}
    Body: {...}
    Files count: 1
@@ -104,7 +104,7 @@ Lihat di F12 Console:
 Lihat di F12 Console:
 ```
 🔍 Loading Surat Pengantar for Admin...
-   URL: http://192.168.1.34:3000/api/surat-pengantar/admin
+   URL: http://10.61.28.85:3000/api/surat-pengantar/admin
 🔍 Fetching Surat Pengantar Admin...
    URL: ...
 📡 Response Status: 200 ✅

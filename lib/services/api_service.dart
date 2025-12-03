@@ -6,8 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // --- PERHATIAN: Menggunakan IP untuk akses otomatis ---
-  // Untuk emulator Android gunakan 192.168.1.34, untuk iOS simulator gunakan localhost
-  static const String baseUrl = 'http://192.168.1.34:3000/api';
+  // Untuk emulator Android gunakan 10.61.28.85, untuk iOS simulator gunakan localhost
+  static const String baseUrl = 'http://10.61.28.85:3000/api';
 
   // Helper untuk handle response
   Map<String, dynamic> _handleResponse(http.Response response) {
@@ -176,25 +176,30 @@ class ApiService {
     }
   }
 
-  // Get Announcements
-  Future<Map<String, dynamic>> getAnnouncements() async {
+  // Get Announcements - dengan optional limit parameter
+  // limit = 0 atau tidak dikirim = ambil semua dari backend
+  Future<Map<String, dynamic>> getAnnouncements({int limit = 0}) async {
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/pengumuman'),
-        headers: await _getHeaders(),
-      );
+      // Jika limit = 0, jangan kirim parameter (backend akan return semua)
+      final Map<String, String> queryParams = limit > 0
+          ? {'limit': limit.toString()}
+          : {};
+      final uri = Uri.parse(
+        '$baseUrl/pengumuman',
+      ).replace(queryParameters: queryParams);
+
+      final response = await http.get(uri, headers: await _getHeaders());
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final transformedData = data
             .map(
               (item) => {
+                'id': item['_id'],
                 'title': item['judul'] ?? 'Pengumuman',
                 'description': item['isi'] ?? '',
-                'date': item['tanggal_dibuat'] != null
-                    ? DateTime.parse(
-                        item['tanggal_dibuat'],
-                      ).toString().split(' ')[0]
+                'date': item['createdAt'] != null
+                    ? DateTime.parse(item['createdAt']).toString().split(' ')[0]
                     : '',
                 'author': item['penulis_id']?['nama_lengkap'] ?? 'Admin',
               },
@@ -296,27 +301,65 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final transformedData = data
-            .map(
-              (item) => {
-                'id': item['_id'],
-                'title': item['judul'] ?? 'Iuran',
-                'description': item['judul'] ?? 'Pembayaran iuran',
-                'amount': item['jumlah'] ?? 0,
-                'status': item['status_pembayaran'] ?? 'Menunggu',
-                'type': item['kategori'] ?? 'Iuran',
-                'date': item['tanggal_tenggat'] != null
-                    ? DateTime.parse(
-                        item['tanggal_tenggat'],
-                      ).toString().split(' ')[0]
-                    : '',
-                'periode': item['periode'] != null
-                    ? '${item['periode']['bulan']}/${item['periode']['tahun']}'
-                    : '',
-              },
-            )
-            .toList();
+        final rawData = jsonDecode(response.body);
+
+        // Normalize status values similar to admin side so user sees consistent labels
+        final transformedData = rawData.map((item) {
+          final dynamic rawStatusField =
+              item['status_pembayaran'] ?? item['status'];
+          final rawStatus = rawStatusField?.toString() ?? '';
+          final rsLower = rawStatus.toLowerCase();
+
+          final isLunas =
+              rsLower.contains('lunas') ||
+              rsLower.contains('paid') ||
+              rsLower.contains('sudah') ||
+              rsLower == 'true' ||
+              rsLower == '1';
+          final isMenunggu =
+              rsLower.contains('verif') ||
+              rsLower.contains('menunggu') ||
+              rsLower.contains('pending') ||
+              rsLower.contains('wait');
+          final isBelum =
+              rsLower.contains('belum') ||
+              rsLower.contains('tidak') ||
+              rsLower.contains('unpaid') ||
+              rsLower.contains('not paid');
+
+          String normalizedStatus;
+          if (isBelum) {
+            normalizedStatus = 'Belum Lunas';
+          } else if (isLunas) {
+            normalizedStatus = 'Lunas';
+          } else if (isMenunggu) {
+            normalizedStatus = 'Menunggu Verifikasi';
+          } else {
+            normalizedStatus = 'Belum Lunas';
+          }
+
+          debugPrint(
+            '🔁 User payments raw status: "${rawStatus}" -> $normalizedStatus',
+          );
+
+          return {
+            'id': item['_id'],
+            'title': item['judul'] ?? 'Iuran',
+            'description': item['judul'] ?? 'Pembayaran iuran',
+            'amount': item['jumlah'] ?? 0,
+            'status': normalizedStatus,
+            'type': item['kategori'] ?? 'Iuran',
+            'date': item['tanggal_tenggat'] != null
+                ? DateTime.parse(
+                    item['tanggal_tenggat'],
+                  ).toString().split(' ')[0]
+                : '',
+            'periode': item['periode'] != null
+                ? '${item['periode']['bulan']}/${item['periode']['tahun']}'
+                : '',
+          };
+        }).toList();
+
         return {'success': true, 'data': transformedData};
       } else {
         return _handleResponse(response);
@@ -571,32 +614,106 @@ class ApiService {
 
         for (var item in rawData) {
           try {
-            debugPrint('📄 Processing: ${item['_id']}');
-            debugPrint('   Warga: ${item['warga_id']?['nama_lengkap']}');
-            debugPrint('   Status: ${item['status_pembayaran']}');
-            debugPrint('   Jumlah: ${item['jumlah']}');
+            // Be tolerant terhadap berbagai bentuk item dari backend:
+            // - item mungkin punya key '_id' atau 'id'
+            // - 'warga_id' bisa berupa Map (object) atau String id
+            final id = item['_id']?.toString() ?? item['id']?.toString() ?? '';
+
+            final dynamic wargaField = item['warga_id'];
+
+            String wargaId = '';
+            String namaWarga = item['nama_warga']?.toString() ?? '';
+
+            if (wargaField is Map) {
+              wargaId = wargaField['_id']?.toString() ?? '';
+              namaWarga = namaWarga.isNotEmpty
+                  ? namaWarga
+                  : (wargaField['nama_lengkap']?.toString() ??
+                        'Tidak Diketahui');
+            } else if (wargaField is String) {
+              wargaId = wargaField;
+              namaWarga = namaWarga.isNotEmpty
+                  ? namaWarga
+                  : (item['nama_warga']?.toString() ?? 'Tidak Diketahui');
+            } else {
+              // fallback
+              wargaId = item['warga_id']?.toString() ?? '';
+              namaWarga = namaWarga.isNotEmpty
+                  ? namaWarga
+                  : (item['nama_warga']?.toString() ?? 'Tidak Diketahui');
+            }
+
+            // Accept both 'jumlah' and 'nominal' keys from backend
+            final dynamic rawJumlah = item['jumlah'] ?? item['nominal'];
+            final jumlah = (rawJumlah is int)
+                ? rawJumlah
+                : int.tryParse(rawJumlah?.toString() ?? '0') ?? 0;
+
+            final periodeTahun = (item['periode_tahun'] is int)
+                ? item['periode_tahun']
+                : int.tryParse(item['periode_tahun']?.toString() ?? '0') ?? 0;
+
+            debugPrint('📄 Processing: $id');
+            debugPrint('   Warga: $namaWarga (warga_id: $wargaId)');
+            debugPrint(
+              '   Status: ${item['status_pembayaran'] ?? item['status'] ?? 'N/A'}',
+            );
+            debugPrint('   Jumlah: $jumlah');
             debugPrint('   Bukti: ${item['bukti_pembayaran']}');
 
+            // Normalize status values to match UI labels (robust heuristics)
+            final rawStatus =
+                item['status_pembayaran']?.toString() ??
+                item['status']?.toString() ??
+                '';
+            String normalizedStatus;
+            final rsLower = rawStatus.toLowerCase();
+
+            final isLunas =
+                rsLower.contains('lunas') ||
+                rsLower.contains('paid') ||
+                rsLower.contains('sudah') ||
+                rsLower == 'true' ||
+                rsLower == '1';
+            final isMenunggu =
+                rsLower.contains('verif') ||
+                rsLower.contains('menunggu') ||
+                rsLower.contains('pending') ||
+                rsLower.contains('wait');
+            final isBelum =
+                rsLower.contains('belum') ||
+                rsLower.contains('tidak') ||
+                rsLower.contains('unpaid') ||
+                rsLower.contains('not paid');
+
+            if (isBelum) {
+              normalizedStatus = 'Belum Lunas';
+            } else if (isLunas) {
+              normalizedStatus = 'Lunas';
+            } else if (isMenunggu) {
+              normalizedStatus = 'Menunggu Verifikasi';
+            } else {
+              normalizedStatus = 'Belum Lunas';
+            }
+
+            debugPrint(
+              '🔁 Raw status: "$rawStatus" -> Normalized: $normalizedStatus',
+            );
+
             transformedData.add({
-              'id': item['_id']?.toString() ?? '',
-              'warga_id': item['warga_id']?['_id']?.toString() ?? '',
-              'nama_warga':
-                  item['warga_id']?['nama_lengkap']?.toString() ??
-                  'Tidak Diketahui',
-              'jenis_iuran': item['jenis_iuran']?.toString() ?? 'Iuran RT',
-              'nominal': (item['jumlah'] is int)
-                  ? item['jumlah']
-                  : int.tryParse(item['jumlah']?.toString() ?? '0') ?? 0,
-              'status': item['status_pembayaran']?.toString() ?? 'Belum Lunas',
-              'tanggal_bayar': item['tanggal_bayar']?.toString(),
-              'metode_pembayaran': item['metode_pembayaran']?.toString() ?? '-',
+              'id': id,
+              'warga_id': wargaId,
+              'nama_warga': namaWarga,
+              'judul': item['judul']?.toString() ?? 'Iuran',
+              'kategori': item['kategori']?.toString() ?? '-',
+              'nominal': jumlah,
+              'status': normalizedStatus,
               'bukti_pembayaran': item['bukti_pembayaran']?.toString(),
-              'periode_bulan':
-                  item['periode']?['bulan']?.toString() ??
-                  item['periode_bulan']?.toString() ??
-                  '',
-              'periode_tahun':
-                  item['periode']?['tahun'] ?? item['periode_tahun'] ?? 0,
+              'tanggal_bayar': item['tanggal_bayar']?.toString(),
+              'periode_bulan': item['periode_bulan']?.toString() ?? '',
+              'periode_tahun': periodeTahun,
+              'tanggal_tenggat': item['tanggal_tenggat']?.toString(),
+              'createdAt': item['createdAt']?.toString(),
             });
           } catch (e) {
             debugPrint('⚠️ Error processing item: $e');
@@ -706,6 +823,35 @@ class ApiService {
       }
     } catch (e, stackTrace) {
       debugPrint('❌ Error bayar iuran: $e');
+      debugPrint('Stack: $stackTrace');
+      return {'success': false, 'message': 'Terjadi kesalahan: $e'};
+    }
+  }
+
+  // Create Iuran (admin) - used for mass creation
+  Future<Map<String, dynamic>> createIuran(
+    Map<String, dynamic> iuranData,
+  ) async {
+    try {
+      debugPrint('📤 Creating iuran (admin): $iuranData');
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/admin/iuran'),
+        headers: await _getHeaders(),
+        body: jsonEncode(iuranData),
+      );
+
+      debugPrint(
+        '📥 Create Iuran Response (${response.statusCode}): ${response.body}',
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return {'success': true, 'data': jsonDecode(response.body)};
+      } else {
+        return _handleResponse(response);
+      }
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error create iuran: $e');
       debugPrint('Stack: $stackTrace');
       return {'success': false, 'message': 'Terjadi kesalahan: $e'};
     }
@@ -837,6 +983,9 @@ class ApiService {
         if (updateData.containsKey('jenis_iuran'))
           'jenis_iuran': updateData['jenis_iuran'],
         if (updateData.containsKey('jumlah')) 'jumlah': updateData['jumlah'],
+        if (updateData.containsKey('judul')) 'judul': updateData['judul'],
+        if (updateData.containsKey('deskripsi'))
+          'deskripsi': updateData['deskripsi'],
         if (updateData.containsKey('periode_bulan'))
           'periode_bulan': updateData['periode_bulan'],
         if (updateData.containsKey('periode_tahun'))
@@ -971,7 +1120,11 @@ class ApiService {
         Uri.parse('$baseUrl/kegiatan/$id'),
         headers: await _getHeaders(),
       );
-      return _handleResponse(response);
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': 'Data kegiatan berhasil dihapus'};
+      } else {
+        return _handleResponse(response);
+      }
     } catch (e) {
       return {'success': false, 'message': 'Terjadi kesalahan: $e'};
     }
@@ -1203,30 +1356,23 @@ class ApiService {
     }
   }
 
-  // Create Mass Iuran - FIXED
+  // Create Mass Iuran - FIXED - Payload structure corrected
   Future<Map<String, dynamic>> createMassIuran(
     Map<String, dynamic> iuranData,
   ) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final userDataString = prefs.getString('user_data');
-
-      if (userDataString == null) {
-        return {'success': false, 'message': 'Admin tidak terautentikasi'};
-      }
-
-      final userData = jsonDecode(userDataString);
-
+      // Backend expects flat structure: judul, kategori, jumlah, periode_bulan, periode_tahun, tanggal_tenggat, status_pembayaran
       final requestBody = {
-        'pembuat_id': userData['_id'],
-        'judul_iuran': iuranData['judul_iuran'],
-        'jenis_iuran': iuranData['jenis_iuran'],
-        'jumlah': iuranData['jumlah'],
-        'periode': {
-          'bulan': iuranData['periode_bulan'],
-          'tahun': iuranData['periode_tahun'],
-        },
-        'jatuh_tempo': iuranData['jatuh_tempo'],
+        'judul': iuranData['judul_iuran'] ?? 'Iuran',
+        'kategori': iuranData['jenis_iuran'] ?? 'umum',
+        'jumlah': iuranData['jumlah'] ?? 0,
+        'periode_bulan': iuranData['periode_bulan'] ?? DateTime.now().month,
+        'periode_tahun': iuranData['periode_tahun'] ?? DateTime.now().year,
+        'tanggal_tenggat':
+            iuranData['jatuh_tempo'] ??
+            DateTime.now().add(const Duration(days: 30)).toIso8601String(),
+        'status_pembayaran':
+            'belum_lunas', // Backend enum value (lowercase with underscore)
       };
 
       debugPrint('📤 Create Mass Iuran Request: $requestBody');

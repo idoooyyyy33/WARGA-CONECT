@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'package:image_picker/image_picker.dart'; // <-- Tambahan
 import 'dart:typed_data';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 
 class PaymentsScreen extends StatefulWidget {
   const PaymentsScreen({super.key});
@@ -125,7 +127,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                     image: const DecorationImage(
                       // Ganti dengan URL gambar QRIS Anda
                       image: NetworkImage(
-                        'https://i.ibb.co/L0xJ1pX/qr-code-placeholder.png',
+                        'qris.png',
                       ),
                       fit: BoxFit.cover,
                     ),
@@ -215,25 +217,64 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
   // --- TAMBAHAN: Fungsi untuk memilih gambar & upload ---
   Future<void> _uploadProof(String paymentId) async {
     try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+      Uint8List? imageBytes;
+      String? fileName;
 
-      if (image == null) {
-        _showSnackBar('Pemilihan gambar dibatalkan', isError: true);
+      if (kIsWeb) {
+        // Web: gunakan FilePicker untuk mendapatkan bytes
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.image,
+          allowMultiple: false,
+          withData: true,
+        );
+
+        if (result == null || result.files.isEmpty) {
+          _showSnackBar('Pemilihan file dibatalkan', isError: true);
+          return;
+        }
+
+        final file = result.files.first;
+        imageBytes = file.bytes;
+        fileName = file.name;
+      } else {
+        // Mobile/Desktop: gunakan ImagePicker
+        final XFile? image = await _picker.pickImage(
+          source: ImageSource.gallery,
+        );
+
+        if (image == null) {
+          _showSnackBar('Pemilihan gambar dibatalkan', isError: true);
+          return;
+        }
+
+        imageBytes = await image.readAsBytes();
+        fileName = image.name;
+      }
+
+      // Validate and convert to non-nullable values
+      final Uint8List? _maybeBytes = imageBytes;
+      final String? _maybeName = fileName;
+
+      if (_maybeName == null) {
+        _showSnackBar(
+          'Gagal membaca file (nama tidak tersedia)',
+          isError: true,
+        );
         return;
       }
 
-      // --- PERBAIKAN: Baca isi file (bytes) dan ambil nama filenya ---
-      final Uint8List imageBytes = await image.readAsBytes();
-      final String fileName = image.name;
-      // --- BATAS PERBAIKAN ---
+      if (_maybeBytes == null || _maybeBytes.isEmpty) {
+        _showSnackBar('Gagal membaca file (isi kosong)', isError: true);
+        return;
+      }
 
       _showLoadingDialog();
 
-      // --- PERBAIKAN: Kirim bytes dan nama file, bukan path ---
+      // Kirim bytes dan nama file (non-nullable) ke API
       final result = await _apiService.uploadPaymentProof(
         paymentId,
-        imageBytes,
-        fileName,
+        _maybeBytes,
+        _maybeName,
       );
 
       if (mounted) {
@@ -438,8 +479,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
   }
 
   Widget _buildPaymentCard(dynamic payment) {
-    // --- PERBAIKAN --- Ambil ID dan Status
-    final String paymentId = payment['id']?.toString() ?? '';
+    // --- PERBAIKAN --- Ambil status
     final String status = payment['status']?.toString() ?? 'Menunggu';
     final bool isPaid = status.toLowerCase() == 'lunas';
     final bool isPending = status.toLowerCase() == 'menunggu verifikasi';

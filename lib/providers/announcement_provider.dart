@@ -11,13 +11,15 @@ class AnnouncementProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  Future<void> fetchAnnouncements() async {
+  // Fetch semua pengumuman dari backend (tanpa limit) agar sesuai dengan admin
+  Future<void> fetchAnnouncements({int limit = 0}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      final result = await _apiService.getAnnouncements();
+      // Kirim limit = 0 untuk ambil semua pengumuman dari backend
+      final result = await _apiService.getAnnouncements(limit: limit);
 
       if (result['success']) {
         _announcements = result['data'] is List ? result['data'] : [];
@@ -35,7 +37,12 @@ class AnnouncementProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  List<dynamic> getLatestAnnouncements({int limit = 5}) {
+  // Return semua announcements yang sudah di-fetch (sudah diurutkan dari backend)
+  // Tidak ada batasan - kembalikan sesuai jumlah dari database
+  List<dynamic> getLatestAnnouncements({int limit = 0}) {
+    if (limit <= 0) {
+      return _announcements; // Return semua
+    }
     if (_announcements.length <= limit) {
       return _announcements;
     }

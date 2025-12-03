@@ -34,7 +34,7 @@ const IuranSchema = new Schema({
     status_pembayaran: {
         type: String,
         required: true,
-        enum: ['Belum Bayar', 'Menunggu Konfirmasi', 'Lunas', 'Dibatalkan'],
+        enum: ['Belum Bayar', 'Menunggu Verifikasi', 'Menunggu Konfirmasi', 'Lunas', 'Dibatalkan'],
         default: 'Belum Bayar'
     },
     // Untuk periode bulan apa iuran ini

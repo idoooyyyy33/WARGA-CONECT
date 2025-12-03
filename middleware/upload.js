@@ -23,14 +23,24 @@ const storage = multer.diskStorage({
 // Filter file yang diizinkan
 const fileFilter = (req, file, cb) => {
     // Izinkan hanya file gambar dan PDF
-    const allowedTypes = /jpeg|jpg|png|pdf/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
+    const allowedExtensions = /\.(jpeg|jpg|png|pdf)$/i;
+    const allowedMimetypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+    
+    const extname = allowedExtensions.test(file.originalname);
+    const mimetype = allowedMimetypes.includes(file.mimetype);
+    
+    // DEBUG: Log file info untuk troubleshooting
+    console.log(`📁 Upload file: ${file.originalname}`);
+    console.log(`   - MIME type: ${file.mimetype}`);
+    console.log(`   - Extension valid: ${extname}`);
+    console.log(`   - MIME valid: ${mimetype}`);
 
-    if (mimetype && extname) {
+    // Jika extension valid, izinkan (lenient mode untuk client yang berbeda-beda)
+    if (extname) {
         return cb(null, true);
     } else {
-        cb(new Error('File type not allowed. Only JPEG, PNG, and PDF files are allowed.'));
+        console.log(`❌ File rejected: ${file.originalname}`);
+        cb(new Error('Tipe file tidak didukung. Gunakan JPG, PNG, atau PDF'));
     }
 };
 
@@ -51,6 +61,10 @@ const uploadLampiran = upload.fields([
     { name: 'files', maxCount: 5 } // Field dari Flutter
 ]);
 
+// Helper: buat middleware single upload untuk field tertentu
+const createSingle = (fieldName) => upload.single(fieldName);
+
 module.exports = {
-    uploadLampiran
+    uploadLampiran,
+    createSingle,
 };

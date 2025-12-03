@@ -1,12 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const KegiatanWarga = require('../models/KegiatanWarga');
+const { authenticateUser } = require('../middleware/auth');
 
 // === CREATE (Membuat Kegiatan Baru) ===
 // POST /api/kegiatan
-router.post('/', async (req, res) => {
+// Require authentication so we can set penanggung_jawab_id from the logged-in user
+router.post('/', authenticateUser, async (req, res) => {
     try {
-        const { nama_kegiatan, deskripsi, tanggal_kegiatan, lokasi, penanggung_jawab_id } = req.body;
+        const { nama_kegiatan, deskripsi, tanggal_kegiatan, lokasi } = req.body;
+
+        // penanggung_jawab_id comes from the authenticated user (req.user)
+        const penanggung_jawab_id = req.user && req.user.id ? req.user.id : null;
 
         const kegiatanBaru = new KegiatanWarga({
             nama_kegiatan,

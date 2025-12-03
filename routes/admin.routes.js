@@ -148,12 +148,13 @@ router.get('/aktivitas', authenticateUser, requireAdmin, async (req, res) => {
         // Ambil aktivitas terbaru dari berbagai koleksi
         const activities = [];
 
-        // Pengumuman terbaru
+        // Pengumuman terbaru - gunakan query parameter limit untuk fleksibilitas
+        const pengumumanLimit = parseInt(req.query.pengumumanLimit) || 10;
         const pengumuman = await require('../models/Pengumuman')
             .find()
             .populate('penulis_id', 'nama_lengkap')
             .sort({ createdAt: -1 })
-            .limit(3);
+            .limit(pengumumanLimit);
 
         pengumuman.forEach(item => {
             activities.push({
@@ -352,8 +353,8 @@ router.get("/iuran", authenticateUser, requireAdmin, async (req, res) => {
         let filter = {};
         if (bulan && tahun) {
             filter = {
-                "periode.bulan": parseInt(bulan),
-                "periode.tahun": parseInt(tahun)
+                "periode_bulan": parseInt(bulan),
+                "periode_tahun": parseInt(tahun)
             };
         }
 
@@ -366,14 +367,15 @@ router.get("/iuran", authenticateUser, requireAdmin, async (req, res) => {
             id: item._id?.toString() || "",
             warga_id: item.warga_id?._id?.toString() || "",
             nama_warga: item.warga_id?.nama_lengkap || "Tidak Diketahui",
-            jenis_iuran: item.jenis_iuran || "Iuran RT",
+            judul: item.judul || "Iuran",
+            kategori: item.kategori || "-",
             nominal: item.jumlah || 0,
-            status: item.status_pembayaran || "Belum Lunas",
-            tanggal_bayar: item.tanggal_bayar,
-            metode_pembayaran: item.metode_pembayaran || "-",
-            bukti_pembayaran: item.bukti_pembayaran,
-            periode_bulan: item.periode?.bulan?.toString() || "",
-            periode_tahun: item.periode?.tahun || 0,
+            status: item.status_pembayaran || "Belum Bayar",
+            bukti_pembayaran: item.bukti_pembayaran || null,
+            periode_bulan: item.periode_bulan?.toString() || "",
+            periode_tahun: item.periode_tahun || 0,
+            tanggal_tenggat: item.tanggal_tenggat,
+            createdAt: item.createdAt,
         }));
 
         res.json(transformedData);

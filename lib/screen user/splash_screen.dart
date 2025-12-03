@@ -375,7 +375,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Powered by Flutter',
+                      'Powered by Arek Arek comel',
                       style: GoogleFonts.poppins(
                         color: Colors.white.withOpacity(0.4),
                         fontSize: 10,

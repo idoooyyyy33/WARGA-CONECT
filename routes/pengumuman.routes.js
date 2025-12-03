@@ -24,13 +24,22 @@ router.post('/', async (req, res) => {
 
 // === READ (Membaca Semua Pengumuman) ===
 // GET /api/pengumuman/
+// Optional query parameter: ?limit=10 (default: semua)
 router.get('/', async (req, res) => {
     try {
         // .populate() akan mengambil data penulis dari 'users'
         // .sort() akan mengurutkan dari yang terbaru
-        const pengumuman = await Pengumuman.find()
-                                         .populate('penulis_id', 'nama_lengkap role')
-                                         .sort({ createdAt: -1 }); 
+        const limit = req.query.limit ? parseInt(req.query.limit) : 0; // 0 = unlimited
+        
+        let query = Pengumuman.find()
+                              .populate('penulis_id', 'nama_lengkap role')
+                              .sort({ createdAt: -1 });
+        
+        if (limit > 0) {
+            query = query.limit(limit);
+        }
+        
+        const pengumuman = await query;
         res.json(pengumuman);
     } catch (err) {
         res.status(500).json({ message: err.message });
